@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Aichain — Superteam Poland</title>
+  <style>
+    @page { size: landscape; margin: 0; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #0b1220;
+      color: #fff;
+    }
+    .slide {
+      width: 100vw;
+      height: 100vh;
+      padding: 7vh 8vw;
+      page-break-after: always;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      background:
+        radial-gradient(900px 500px at 10% -10%, rgba(61,255,168,.15), transparent 55%),
+        #0b1220;
+    }
+    h1 { font-size: 3.2rem; margin: 0 0 .4em; }
+    h2 { font-size: 2.2rem; color: #3dffa8; margin: 0 0 .6em; }
+    p, li { font-size: 1.35rem; line-height: 1.45; color: #c5d0e0; }
+    .accent { color: #3dffa8; }
+    ul { padding-left: 1.2em; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { border-bottom: 1px solid #243049; padding: .55em .4em; text-align: left; font-size: 1.15rem; }
+  </style>
+</head>
+<body>
+  <section class="slide"><h1>Aichain</h1><p>Finance without the bookmaker — pari-mutuel pools on <span class="accent">Solana</span></p><p>Superteam Poland Challenge</p></section>
+  <section class="slide"><h2>Problem</h2><p>Classic betting needs a trusted intermediary who holds funds, sets odds, and decides payouts.</p><p>That intermediary can delay, censor, or fail — and always takes a margin.</p></section>
+  <section class="slide"><h2>Insight</h2><p>Write the terms into a Solana program. Custody in a PDA vault. Payouts are math, not discretion.</p></section>
+  <section class="slide"><h2>Product</h2><ul><li>Binary markets (NaVi vs FaZe)</li><li>demo-USDC on devnet</li><li>Mutual pool odds that update with every bet</li><li>Target user: esports fans</li></ul></section>
+  <section class="slide"><h2>Payouts</h2><p><code>payout = floor(stake × total_pool / winning_pool)</code></p><p>No vig from winners. Platform earns <span class="accent">yield</span> on idle capital via CPI to <code>yield_park</code>.</p></section>
+  <section class="slide"><h2>Architecture</h2><ul><li><code>aichain</code> — markets, bets, resolve, claim</li><li><code>yield_park</code> — deposit/withdraw + APR shares</li><li>OracleFeed PDA fixed at market init</li><li>HTTP source for Switchboard: <code>/api/oracle/[id]</code></li></ul></section>
+  <section class="slide"><h2>Live demo</h2><ol><li>Place bets (2 wallets)</li><li>Lock → CPI into yield_park</li><li>Oracle finalize → Resolve</li><li>Claim / Refund — show Solscan</li></ol></section>
+  <section class="slide"><h2>Trust boundaries</h2><table><tr><th>Trustless</th><th>Still external</th></tr><tr><td>Custody, payout math, refunds</td><td>Oracle data input</td></tr><tr><td>No admin rewrite after resolve</td><td>Match result source API</td></tr></table></section>
+  <section class="slide"><h2>Implementation potential</h2><p>Same contracts pivot to parametric insurance, milestone escrow, or licensed markets.</p><p>Devnet MVP today → compliance / real sports API next.</p></section>
+  <section class="slide"><h2>Ask</h2><p>Feedback from Superteam mentors.</p><p>Continue building toward a grant-ready public demo.</p></section>
+</body>
+</html>

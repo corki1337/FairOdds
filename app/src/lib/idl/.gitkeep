@@ -1,0 +1,5 @@
+/**
+ * Minimal IDL stubs so the app typechecks before `anchor build`.
+ * After build, copy target/idl/*.json over these files.
+ */
+export {};
