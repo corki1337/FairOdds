@@ -3,7 +3,10 @@ use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
 use crate::errors::AichainError;
 use crate::events::BetPlaced;
-use crate::state::{MarketState, MarketStatus, UserBetReceipt};
+use crate::state::{
+    MarketState, MarketStatus, UserBetReceipt, MIN_BET, SEED_MARKET, SEED_RECEIPT, SEED_VAULT,
+    SEED_VERSION,
+};
 
 #[derive(Accounts)]
 pub struct PlaceBet<'info> {
@@ -12,7 +15,7 @@ pub struct PlaceBet<'info> {
 
     #[account(
         mut,
-        seeds = [b"market", market.match_id.to_le_bytes().as_ref()],
+        seeds = [SEED_VERSION, SEED_MARKET, market.match_id.to_le_bytes().as_ref()],
         bump = market.bump,
         constraint = market.status == MarketStatus::Open @ AichainError::MarketNotOpen,
     )]
@@ -20,7 +23,7 @@ pub struct PlaceBet<'info> {
 
     #[account(
         mut,
-        seeds = [b"vault", market.key().as_ref()],
+        seeds = [SEED_VERSION, SEED_VAULT, market.key().as_ref()],
         bump = market.vault_bump,
     )]
     pub vault: Account<'info, TokenAccount>,
@@ -36,7 +39,7 @@ pub struct PlaceBet<'info> {
         init_if_needed,
         payer = user,
         space = UserBetReceipt::LEN,
-        seeds = [b"receipt", market.key().as_ref(), user.key().as_ref()],
+        seeds = [SEED_VERSION, SEED_RECEIPT, market.key().as_ref(), user.key().as_ref()],
         bump
     )]
     pub receipt: Account<'info, UserBetReceipt>,
@@ -46,7 +49,7 @@ pub struct PlaceBet<'info> {
 }
 
 pub fn handler(ctx: Context<PlaceBet>, amount: u64, team: u8) -> Result<()> {
-    require!(amount > 0, AichainError::ZeroAmount);
+    require!(amount >= MIN_BET, AichainError::BetTooSmall);
     require!(team <= 1, AichainError::InvalidTeam);
 
     let clock = Clock::get()?;
@@ -56,7 +59,7 @@ pub fn handler(ctx: Context<PlaceBet>, amount: u64, team: u8) -> Result<()> {
     );
 
     let receipt = &mut ctx.accounts.receipt;
-    if receipt.amount_staked == 0 && receipt.user == Pubkey::default() {
+    if receipt.user == Pubkey::default() {
         receipt.user = ctx.accounts.user.key();
         receipt.market = ctx.accounts.market.key();
         receipt.team_selected = team;
@@ -81,11 +84,20 @@ pub fn handler(ctx: Context<PlaceBet>, amount: u64, team: u8) -> Result<()> {
 
     let market = &mut ctx.accounts.market;
     if team == 0 {
-        market.pool_team_a = market.pool_team_a.saturating_add(amount);
+        market.pool_team_a = market
+            .pool_team_a
+            .checked_add(amount)
+            .ok_or(error!(AichainError::MathOverflow))?;
     } else {
-        market.pool_team_b = market.pool_team_b.saturating_add(amount);
+        market.pool_team_b = market
+            .pool_team_b
+            .checked_add(amount)
+            .ok_or(error!(AichainError::MathOverflow))?;
     }
-    receipt.amount_staked = receipt.amount_staked.saturating_add(amount);
+    receipt.amount_staked = receipt
+        .amount_staked
+        .checked_add(amount)
+        .ok_or(error!(AichainError::MathOverflow))?;
 
     emit!(BetPlaced {
         market: market.key(),

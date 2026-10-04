@@ -6,7 +6,7 @@ pub mod state;
 
 use instructions::*;
 
-declare_id!("H6wcSEryWtp2rmEu56qCi7zXMd6pmrAMH9cKHxDuM4ET");
+declare_id!("6XUoUhwMgdurDYu47VKEpqAKczbkY36H22xHr9o9DNHS");
 
 #[program]
 pub mod yield_park {

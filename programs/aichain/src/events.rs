@@ -4,7 +4,11 @@ use anchor_lang::prelude::*;
 pub struct MarketInitialized {
     pub match_id: u64,
     pub market: Pubkey,
+    pub oracle_feed: Pubkey,
+    pub feed_hash: [u8; 32],
     pub start_time: i64,
+    pub end_time: i64,
+    pub resolve_deadline: i64,
 }
 
 #[event]
@@ -25,8 +29,11 @@ pub struct MarketLocked {
 #[event]
 pub struct MarketResolved {
     pub market: Pubkey,
+    /// Raw oracle outcome (0/1/2), or u8::MAX when cancelled on deadline.
+    pub oracle_result: u8,
     pub winning_team: Option<u8>,
-    pub cancelled: bool,
+    pub cancel_reason: u8,
+    pub payout_pool: u64,
     pub yield_harvested: u64,
 }
 

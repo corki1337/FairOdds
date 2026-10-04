@@ -3,7 +3,11 @@ use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
 use crate::errors::AichainError;
 use crate::events::BetRefunded;
-use crate::state::{MarketState, MarketStatus, UserBetReceipt};
+use crate::market_signer;
+use crate::math::pari_mutuel_payout;
+use crate::state::{
+    MarketState, MarketStatus, UserBetReceipt, SEED_MARKET, SEED_RECEIPT, SEED_VAULT, SEED_VERSION,
+};
 
 #[derive(Accounts)]
 pub struct Refund<'info> {
@@ -11,7 +15,8 @@ pub struct Refund<'info> {
     pub user: Signer<'info>,
 
     #[account(
-        seeds = [b"market", market.match_id.to_le_bytes().as_ref()],
+        mut,
+        seeds = [SEED_VERSION, SEED_MARKET, market.match_id.to_le_bytes().as_ref()],
         bump = market.bump,
         constraint = market.status == MarketStatus::Cancelled @ AichainError::MarketNotCancelled,
     )]
@@ -19,7 +24,7 @@ pub struct Refund<'info> {
 
     #[account(
         mut,
-        seeds = [b"vault", market.key().as_ref()],
+        seeds = [SEED_VERSION, SEED_VAULT, market.key().as_ref()],
         bump = market.vault_bump,
     )]
     pub vault: Account<'info, TokenAccount>,
@@ -33,10 +38,10 @@ pub struct Refund<'info> {
 
     #[account(
         mut,
-        seeds = [b"receipt", market.key().as_ref(), user.key().as_ref()],
+        seeds = [SEED_VERSION, SEED_RECEIPT, market.key().as_ref(), user.key().as_ref()],
         bump = receipt.bump,
         has_one = user,
-        constraint = receipt.market == market.key(),
+        has_one = market,
     )]
     pub receipt: Account<'info, UserBetReceipt>,
 
@@ -46,34 +51,37 @@ pub struct Refund<'info> {
 pub fn handler(ctx: Context<Refund>) -> Result<()> {
     let receipt = &ctx.accounts.receipt;
     require!(!receipt.claimed, AichainError::AlreadyClaimed);
-    let amount = receipt.amount_staked;
-    require!(amount > 0, AichainError::ZeroAmount);
+    let stake = receipt.amount_staked;
+    require!(stake > 0, AichainError::ZeroAmount);
 
-    let match_id_bytes = ctx.accounts.market.match_id.to_le_bytes();
-    let seeds = &[
-        b"market".as_ref(),
-        match_id_bytes.as_ref(),
-        &[ctx.accounts.market.bump],
-    ];
-    let signer = &[&seeds[..]];
+    let market = &ctx.accounts.market;
+    let amount = pari_mutuel_payout(stake, market.total_pool(), market.payout_pool)?;
 
-    token::transfer(
-        CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
-            Transfer {
-                from: ctx.accounts.vault.to_account_info(),
-                to: ctx.accounts.user_ata.to_account_info(),
-                authority: ctx.accounts.market.to_account_info(),
-            },
-            signer,
-        ),
-        amount,
-    )?;
+    if amount > 0 {
+        market_signer!(market, id, bump, seeds);
+        token::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.vault.to_account_info(),
+                    to: ctx.accounts.user_ata.to_account_info(),
+                    authority: ctx.accounts.market.to_account_info(),
+                },
+                &[seeds],
+            ),
+            amount,
+        )?;
+    }
 
     ctx.accounts.receipt.claimed = true;
+    let market = &mut ctx.accounts.market;
+    market.claimed_stake = market
+        .claimed_stake
+        .checked_add(stake)
+        .ok_or(error!(AichainError::MathOverflow))?;
 
     emit!(BetRefunded {
-        market: ctx.accounts.market.key(),
+        market: market.key(),
         user: ctx.accounts.user.key(),
         amount,
     });

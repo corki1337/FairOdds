@@ -6,37 +6,37 @@ import {
   WalletProvider,
 } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
-import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
+import { WalletError } from "@solana/wallet-adapter-base";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { DEPLOY } from "@/lib/ids";
+import { RPC_URL, retryingFetch } from "@/lib/rpc";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
 
 const queryClient = new QueryClient();
 
+/**
+ * Phantom / Solflare register via Wallet Standard in the browser extension.
+ * Do NOT pass PhantomWalletAdapter — when the extension is missing that adapter
+ * opens phantom.app instead of connecting.
+ */
 export function Providers({ children }: { children: React.ReactNode }) {
-  const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
+  // Empty = auto-discover installed Wallet Standard wallets (Phantom ext, etc.)
+  const wallets = useMemo(() => [], []);
 
-  const Conn = ConnectionProvider as React.ComponentType<{
-    endpoint: string;
-    children?: React.ReactNode;
-  }>;
-  const Wall = WalletProvider as React.ComponentType<{
-    wallets: PhantomWalletAdapter[];
-    autoConnect?: boolean;
-    children?: React.ReactNode;
-  }>;
-  const Modal = WalletModalProvider as React.ComponentType<{
-    children?: React.ReactNode;
-  }>;
+  const onError = (error: WalletError) => {
+    console.error("[wallet]", error.name, error.message);
+  };
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Conn endpoint={DEPLOY.rpcUrl}>
-        <Wall wallets={wallets} autoConnect>
-          <Modal>{children}</Modal>
-        </Wall>
-      </Conn>
+      <ConnectionProvider
+        endpoint={RPC_URL}
+        config={{ commitment: "confirmed", fetch: retryingFetch }}
+      >
+        <WalletProvider wallets={wallets} autoConnect onError={onError}>
+          <WalletModalProvider>{children}</WalletModalProvider>
+        </WalletProvider>
+      </ConnectionProvider>
     </QueryClientProvider>
   );
 }

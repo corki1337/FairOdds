@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
-use crate::state::GlobalConfig;
+use crate::state::{GlobalConfig, SEED_GLOBAL, SEED_TREASURY, SEED_VERSION};
 
 #[derive(Accounts)]
 pub struct InitializeGlobal<'info> {
@@ -14,7 +14,7 @@ pub struct InitializeGlobal<'info> {
         init,
         payer = authority,
         space = GlobalConfig::LEN,
-        seeds = [b"global"],
+        seeds = [SEED_VERSION, SEED_GLOBAL],
         bump
     )]
     pub global: Account<'info, GlobalConfig>,
@@ -22,14 +22,15 @@ pub struct InitializeGlobal<'info> {
     #[account(
         init,
         payer = authority,
-        seeds = [b"treasury", global.key().as_ref()],
+        seeds = [SEED_VERSION, SEED_TREASURY, global.key().as_ref()],
         bump,
         token::mint = usdc_mint,
         token::authority = global,
     )]
     pub treasury: Account<'info, TokenAccount>,
 
-    /// CHECK: yield park program id stored for reference / future validation
+    /// CHECK: must be the yield_park program this build was compiled against
+    #[account(address = yield_park::ID)]
     pub yield_park_program: UncheckedAccount<'info>,
 
     pub system_program: Program<'info, System>,

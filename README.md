@@ -1,116 +1,101 @@
-# Aichain
+# FairOdds
 
-Pari-mutuel prediction pools on **Solana** with idle-capital yield.  
+Pari-mutuel bookmaker on **real sports matches**, settled on Solana.  
 Superteam Poland — *Finance Without Intermediaries*.
 
-> **Przenosisz projekt na inny PC?** Zacznij od **[`docs/HANDOFF.md`](docs/HANDOFF.md)** — status, keypairy, TODO, setup od zera.
+Product name in the UI is **FairOdds**. On-chain crate names stay `aichain` / `yield_park` (fixed Program IDs).
 
-## What it is
+## How it works
 
-- Binary markets (Team A vs Team B), e.g. **NaVi vs FaZe**
-- Shared pool payouts (no bookmaker margin)
-- On lock, vault USDC moves via **CPI** into `yield_park`
-- On resolve, capital returns; surplus yield → platform treasury
-- Settlement via **OracleFeed** PDA + HTTP `/api/oracle/[matchId]`
+- Markets are real fixtures from [TheSportsDB](https://www.thesportsdb.com) (`idEvent` = on-chain `match_id`).
+- Betting is **prematch only** — the market locks at kickoff.
+- Odds come only from the pool split (no catalog / bookmaker line).
+- Idle vault USDC sits in `yield_park` while the match is locked.
+- Settlement: Switchboard On-Demand oracles fetch `lookupevent.php?id=<idEvent>` and report **home − away**. Sign of the difference is the winner; `0` cancels and refunds (`CANCEL_DRAW`).
+- Our server is **not** in the settlement path. There is no `/api/oracle`.
+- Demo-USDC faucet is on-chain (PDA mint authority, 24h cooldown).
 
-## Program IDs (fixed by deploy keypairs)
+See `docs/ORACLE.md`.
+
+## Program IDs (devnet)
 
 | Program | ID |
 |---------|-----|
-| `aichain` | `CYizbVKeAyuiZUh9RBKhSw9m2o2CzFDxg95yLJWhJvUW` |
-| `yield_park` | `H6wcSEryWtp2rmEu56qCi7zXMd6pmrAMH9cKHxDuM4ET` |
+| `aichain` | `4FNHp1MjhJTqZZqQq333qrDBduT9orpF4zMTdXXUT1dg` |
+| `yield_park` | `6XUoUhwMgdurDYu47VKEpqAKczbkY36H22xHr9o9DNHS` |
 
-**Keep** `target/deploy/*-keypair.json` when moving machines (folder is gitignored).
+Keep `target/deploy/*-keypair.json` when moving machines (gitignored).
 
 ## Repo layout
 
 | Path | Role |
 |------|------|
-| `programs/aichain` | Markets, bets, resolve, claim, refund |
+| `programs/aichain` | Markets, bets, resolve, claim, refund, faucet, treasury |
 | `programs/yield_park` | Deposit / withdraw / APR share accounting |
-| `app/` | Next.js UI + oracle HTTP API |
-| `tests/` | Anchor e2e tests |
-| `scripts/` | Devnet setup + demo prepare |
-| `docs/` | Design, pitch, oracle, demo, **handoff** |
-| `presentation/` | Judge slides |
+| `app/` | Next.js UI + fixture catalog API |
+| `tests/program-test` | Integration tests against built `.so` |
+| `scripts/` | Devnet setup, markets, crank, smoke |
+| `docs/` | Design, oracle, demo, handoff |
 
-## Status (2026-10-03)
+## Status (2026-10-04)
 
 | Area | State |
 |------|--------|
-| On-chain programs (source) | Done |
-| Compiled `.so` (last machine) | Done — rebuild on new PC |
-| Frontend + oracle API | Done (uses stub IDL until `anchor build`) |
-| Scripts / tests (source) | Done |
-| Docs / slides | Done |
-| `anchor test` green | **Not verified** |
-| Devnet deploy + `setup-devnet` | **Not done** |
-| Git remote / public repo | **Not done** |
-
-## Prerequisites
-
-- Rust (rustup), Solana CLI, **Anchor 0.30.1**, Node 18+
-- Devnet SOL for deploy wallet
-
-```bash
-avm install 0.30.1 && avm use 0.30.1
-solana config set --url devnet
-```
+| Programs (score-diff + faucet + treasury) | Deployed to the same Program IDs |
+| Integration tests | 10/10 |
+| Catalog | 360 TheSportsDB fixtures (`npm run fixtures:fetch`) |
+| UI | FairOdds, pool odds only, on-chain faucet |
+| Smoke | Sevilla 1:3 Barcelona → winner claimed 400 USDC |
 
 ## Build & test
 
+`anchor build` needs a working Agave install. On this machine the SBF binaries are built per crate (workspace build of `aichain` also compiles `yield-park` with `cpi` / `no-entrypoint` and would overwrite `yield_park.so` with a stub):
+
 ```bash
-yarn install          # repo root
+npm install
 cd app && npm install && cd ..
 
-anchor build
-cp target/idl/aichain.json app/src/lib/idl/
-cp target/idl/yield_park.json app/src/lib/idl/
+cargo-build-sbf --arch v0 --manifest-path programs/aichain/Cargo.toml
+cargo-build-sbf --arch v0 --manifest-path programs/yield_park/Cargo.toml
+npm run idl:patch
 
-anchor test
+npm test
 ```
 
-### Windows note (only if system drive is full)
-
-On the previous machine C: was full — caches lived on D: via `scripts/env-d-drive.ps1` and build used:
-
-```powershell
-cargo-build-sbf --tools-version v1.56 --arch sbfv2 --manifest-path programs\<name>\Cargo.toml
-```
-
-On a normal machine prefer plain `anchor build`. Details: `docs/HANDOFF.md` §5.
+`npm run test:integration` already builds both crates in that order.
 
 ## Deploy (devnet)
 
 ```bash
-anchor deploy --provider.cluster devnet
+solana program deploy --program-id 4FNHp1MjhJTqZZqQq333qrDBduT9orpF4zMTdXXUT1dg target/deploy/aichain.so
+solana program deploy --program-id 6XUoUhwMgdurDYu47VKEpqAKczbkY36H22xHr9o9DNHS target/deploy/yield_park.so
 
 ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \
 ANCHOR_WALLET=~/.config/solana/id.json \
-npx ts-node scripts/setup-devnet.ts
+npx ts-node --transpile-only scripts/setup-devnet.ts
+
+npm run markets:create
+npm run markets:seed
+npm run smoke:devnet
 ```
 
-Create `app/.env.local` from `deploy-config.json` (`NEXT_PUBLIC_USDC_MINT`, `NEXT_PUBLIC_GLOBAL_PDA`, RPC).
+`setup-devnet` reuses the existing Global PDA when the programs are already initialized, then hands mint authority to the faucet PDA.
 
 ```bash
 cd app && npm run dev
 ```
 
-Open `http://localhost:3000` — Phantom on **Devnet** → **Admin** to create a market.
+Phantom on **Devnet** → **Faucet** → bet on an open market. After the match, anyone can **Resolve** (Switchboard + TheSportsDB).
 
-## Demo (judges)
+## Demo
 
 See `docs/DEMO_CHECKLIST.md`. Short path:
 
-1. Two wallets bet on NaVi vs FaZe  
-2. **Lock** → CPI into `yield_park`  
-3. Oracle + **Resolve** → winner **Claim**  
-4. Optional cancel (`result = 2`) → **Refund**  
-5. Treasury = yield, not vig  
-
-## Design (one-liner)
-
-Vault PDA + permissionless claim + pari-mutuel + fixed oracle feed at init = no bookmaker intermediary. Details: `docs/DESIGN.md`, `docs/PITCH.md`.
+1. Two wallets bet opposite sides of a real fixture
+2. **Lock** at kickoff → CPI into `yield_park`
+3. **Resolve** from TheSportsDB via Switchboard → winner **Claim**
+4. Draw or missed deadline → full refund
+5. Treasury = yield, not vig
 
 ## License
 

@@ -5,14 +5,23 @@
   "scripts": {
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
-    "test": "anchor test",
-    "setup:devnet": "ts-node scripts/setup-devnet.ts",
-    "demo:prepare": "ts-node scripts/demo-prepare.ts"
+    "test": "npm run test:rust && npm run test:integration",
+    "test:rust": "cargo test --manifest-path programs/yield_park/Cargo.toml --lib",
+    "test:integration": "cargo-build-sbf --arch v0 --manifest-path programs/aichain/Cargo.toml && cargo-build-sbf --arch v0 --manifest-path programs/yield_park/Cargo.toml && cargo test --manifest-path tests/program-test/Cargo.toml --test integration",
+    "fixtures:fetch": "ts-node --transpile-only scripts/fetch-fixtures.ts",
+    "idl:patch": "ts-node --transpile-only scripts/patch-idl.ts",
+    "setup:devnet": "ts-node --transpile-only scripts/setup-devnet.ts",
+    "markets:create": "ts-node --transpile-only scripts/create-from-fixture.ts",
+    "markets:seed": "ts-node --transpile-only scripts/seed-liquidity.ts",
+    "crank": "ts-node --transpile-only scripts/resolve-crank.ts",
+    "smoke:devnet": "ts-node --transpile-only scripts/smoke-devnet.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",
     "@solana/spl-token": "^0.4.9",
-    "@solana/web3.js": "^1.98.0"
+    "@solana/web3.js": "^1.98.0",
+    "@switchboard-xyz/common": "^5.8.5",
+    "@switchboard-xyz/on-demand": "^3.10.6"
   },
   "devDependencies": {
     "@types/bn.js": "^5.1.6",

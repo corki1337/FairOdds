@@ -1,151 +1,809 @@
 {
-  "address": "CYizbVKeAyuiZUh9RBKhSw9m2o2CzFDxg95yLJWhJvUW",
-  "metadata": { "name": "aichain", "version": "0.1.0", "spec": "0.1.0" },
+  "address": "4FNHp1MjhJTqZZqQq333qrDBduT9orpF4zMTdXXUT1dg",
+  "metadata": {
+    "name": "aichain",
+    "version": "0.2.0",
+    "spec": "0.1.0"
+  },
   "instructions": [
     {
       "name": "initialize_global",
-      "discriminator": [47, 225, 15, 112, 86, 51, 190, 231],
-      "accounts": [
-        { "name": "authority", "writable": true, "signer": true },
-        { "name": "usdc_mint" },
-        { "name": "global", "writable": true },
-        { "name": "treasury", "writable": true },
-        { "name": "yield_park_program" },
-        { "name": "system_program" },
-        { "name": "token_program" },
-        { "name": "rent" }
+      "discriminator": [
+        47,
+        225,
+        15,
+        112,
+        86,
+        51,
+        190,
+        231
       ],
-      "args": [{ "name": "yield_park", "type": "pubkey" }]
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "global",
+          "writable": true
+        },
+        {
+          "name": "treasury",
+          "writable": true
+        },
+        {
+          "name": "yield_park_program"
+        },
+        {
+          "name": "system_program"
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "rent"
+        }
+      ],
+      "args": [
+        {
+          "name": "yield_park",
+          "type": "pubkey"
+        }
+      ]
     },
     {
       "name": "initialize_market",
-      "discriminator": [35, 35, 189, 193, 155, 48, 170, 203],
+      "discriminator": [
+        35,
+        35,
+        189,
+        193,
+        155,
+        48,
+        170,
+        203
+      ],
       "accounts": [
-        { "name": "authority", "writable": true, "signer": true },
-        { "name": "global" },
-        { "name": "usdc_mint" },
-        { "name": "market", "writable": true },
-        { "name": "vault", "writable": true },
-        { "name": "oracle_feed", "writable": true },
-        { "name": "system_program" },
-        { "name": "token_program" },
-        { "name": "rent" }
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global"
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "oracle_feed"
+        },
+        {
+          "name": "feed_lock"
+        },
+        {
+          "name": "system_program"
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "rent"
+        }
       ],
       "args": [
-        { "name": "match_id", "type": "u64" },
-        { "name": "start_time", "type": "i64" },
-        { "name": "end_time", "type": "i64" },
-        { "name": "team_a", "type": { "array": ["u8", 32] } },
-        { "name": "team_b", "type": { "array": ["u8", 32] } }
+        {
+          "name": "match_id",
+          "type": "u64"
+        },
+        {
+          "name": "start_time",
+          "type": "i64"
+        },
+        {
+          "name": "end_time",
+          "type": "i64"
+        },
+        {
+          "name": "resolve_deadline",
+          "type": "i64"
+        },
+        {
+          "name": "team_a",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "team_b",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
       ]
     },
     {
       "name": "place_bet",
-      "discriminator": [222, 62, 67, 220, 63, 166, 126, 33],
+      "discriminator": [
+        222,
+        62,
+        67,
+        220,
+        63,
+        166,
+        126,
+        33
+      ],
       "accounts": [
-        { "name": "user", "writable": true, "signer": true },
-        { "name": "market", "writable": true },
-        { "name": "vault", "writable": true },
-        { "name": "user_ata", "writable": true },
-        { "name": "receipt", "writable": true },
-        { "name": "system_program" },
-        { "name": "token_program" }
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "user_ata",
+          "writable": true
+        },
+        {
+          "name": "receipt",
+          "writable": true
+        },
+        {
+          "name": "system_program"
+        },
+        {
+          "name": "token_program"
+        }
       ],
       "args": [
-        { "name": "amount", "type": "u64" },
-        { "name": "team", "type": "u8" }
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "team",
+          "type": "u8"
+        }
       ]
     },
     {
       "name": "lock_market",
-      "discriminator": [107, 8, 184, 91, 223, 13, 180, 38],
+      "discriminator": [
+        107,
+        8,
+        184,
+        91,
+        223,
+        13,
+        180,
+        38
+      ],
       "accounts": [
-        { "name": "crank", "writable": true, "signer": true },
-        { "name": "global" },
-        { "name": "market", "writable": true },
-        { "name": "vault", "writable": true },
-        { "name": "park", "writable": true },
-        { "name": "park_vault", "writable": true },
-        { "name": "position", "writable": true },
-        { "name": "yield_park_program" },
-        { "name": "system_program" },
-        { "name": "token_program" }
+        {
+          "name": "crank",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global"
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "park",
+          "writable": true
+        },
+        {
+          "name": "park_vault",
+          "writable": true
+        },
+        {
+          "name": "position",
+          "writable": true
+        },
+        {
+          "name": "yield_park_program"
+        },
+        {
+          "name": "system_program"
+        },
+        {
+          "name": "token_program"
+        }
       ],
       "args": []
     },
     {
-      "name": "set_oracle_result",
-      "discriminator": [36, 59, 3, 2, 173, 104, 208, 111],
-      "accounts": [
-        { "name": "authority", "signer": true },
-        { "name": "market" },
-        { "name": "oracle_feed", "writable": true }
+      "name": "resolve_market",
+      "discriminator": [
+        155,
+        23,
+        80,
+        173,
+        46,
+        74,
+        23,
+        239
       ],
-      "args": [{ "name": "result", "type": "u8" }]
+      "accounts": [
+        {
+          "name": "crank",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global"
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "oracle_feed"
+        },
+        {
+          "name": "feed_lock"
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "treasury",
+          "writable": true
+        },
+        {
+          "name": "park",
+          "writable": true
+        },
+        {
+          "name": "park_vault",
+          "writable": true
+        },
+        {
+          "name": "position",
+          "writable": true
+        },
+        {
+          "name": "yield_park_program"
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": []
     },
     {
-      "name": "resolve_market",
-      "discriminator": [155, 23, 80, 173, 46, 74, 23, 239],
+      "name": "cancel_expired",
+      "discriminator": [
+        248,
+        138,
+        112,
+        93,
+        177,
+        89,
+        249,
+        246
+      ],
       "accounts": [
-        { "name": "crank", "writable": true, "signer": true },
-        { "name": "global" },
-        { "name": "market", "writable": true },
-        { "name": "oracle_feed" },
-        { "name": "vault", "writable": true },
-        { "name": "treasury", "writable": true },
-        { "name": "park", "writable": true },
-        { "name": "park_vault", "writable": true },
-        { "name": "position", "writable": true },
-        { "name": "yield_park_program" },
-        { "name": "token_program" }
+        {
+          "name": "crank",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global"
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "treasury",
+          "writable": true
+        },
+        {
+          "name": "park",
+          "writable": true
+        },
+        {
+          "name": "park_vault",
+          "writable": true
+        },
+        {
+          "name": "position",
+          "writable": true
+        },
+        {
+          "name": "yield_park_program"
+        },
+        {
+          "name": "token_program"
+        }
       ],
       "args": []
     },
     {
       "name": "claim_winnings",
-      "discriminator": [161, 215, 24, 59, 14, 236, 242, 221],
+      "discriminator": [
+        161,
+        215,
+        24,
+        59,
+        14,
+        236,
+        242,
+        221
+      ],
       "accounts": [
-        { "name": "user", "writable": true, "signer": true },
-        { "name": "market" },
-        { "name": "vault", "writable": true },
-        { "name": "user_ata", "writable": true },
-        { "name": "receipt", "writable": true },
-        { "name": "token_program" }
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "user_ata",
+          "writable": true
+        },
+        {
+          "name": "receipt",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        }
       ],
       "args": []
     },
     {
       "name": "refund",
-      "discriminator": [2, 96, 183, 251, 63, 208, 46, 46],
+      "discriminator": [
+        2,
+        96,
+        183,
+        251,
+        63,
+        208,
+        46,
+        46
+      ],
       "accounts": [
-        { "name": "user", "writable": true, "signer": true },
-        { "name": "market" },
-        { "name": "vault", "writable": true },
-        { "name": "user_ata", "writable": true },
-        { "name": "receipt", "writable": true },
-        { "name": "token_program" }
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "user_ata",
+          "writable": true
+        },
+        {
+          "name": "receipt",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        }
       ],
       "args": []
     },
     {
       "name": "harvest_to_treasury",
-      "discriminator": [75, 135, 209, 165, 106, 65, 245, 106],
+      "discriminator": [
+        75,
+        135,
+        209,
+        165,
+        106,
+        65,
+        245,
+        106
+      ],
       "accounts": [
-        { "name": "authority", "signer": true },
-        { "name": "global" },
-        { "name": "market" },
-        { "name": "vault", "writable": true },
-        { "name": "treasury", "writable": true },
-        { "name": "token_program" }
+        {
+          "name": "crank",
+          "signer": true
+        },
+        {
+          "name": "global"
+        },
+        {
+          "name": "market"
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "treasury",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        }
       ],
       "args": []
+    },
+    {
+      "name": "withdraw_treasury",
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "global"
+        },
+        {
+          "name": "treasury",
+          "writable": true
+        },
+        {
+          "name": "destination",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ],
+      "discriminator": [
+        40,
+        63,
+        122,
+        158,
+        144,
+        216,
+        83,
+        96
+      ]
+    },
+    {
+      "name": "faucet_mint",
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global"
+        },
+        {
+          "name": "usdc_mint",
+          "writable": true
+        },
+        {
+          "name": "mint_authority"
+        },
+        {
+          "name": "receipt",
+          "writable": true
+        },
+        {
+          "name": "user_ata",
+          "writable": true
+        },
+        {
+          "name": "system_program"
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "associated_token_program"
+        }
+      ],
+      "args": [],
+      "discriminator": [
+        47,
+        229,
+        221,
+        88,
+        0,
+        56,
+        156,
+        38
+      ]
     }
   ],
   "accounts": [
-    { "name": "GlobalConfig", "discriminator": [149, 8, 156, 202, 160, 252, 176, 217] },
-    { "name": "MarketState", "discriminator": [0, 125, 123, 215, 95, 96, 164, 194] },
-    { "name": "UserBetReceipt", "discriminator": [99, 231, 4, 79, 221, 229, 5, 149] },
-    { "name": "OracleFeed", "discriminator": [102, 96, 193, 204, 107, 0, 111, 27] }
+    {
+      "name": "GlobalConfig",
+      "discriminator": [
+        149,
+        8,
+        156,
+        202,
+        160,
+        252,
+        176,
+        217
+      ]
+    },
+    {
+      "name": "MarketState",
+      "discriminator": [
+        0,
+        125,
+        123,
+        215,
+        95,
+        96,
+        164,
+        194
+      ]
+    },
+    {
+      "name": "UserBetReceipt",
+      "discriminator": [
+        99,
+        231,
+        4,
+        79,
+        221,
+        229,
+        5,
+        149
+      ]
+    },
+    {
+      "name": "FaucetReceipt",
+      "discriminator": [
+        226,
+        121,
+        83,
+        120,
+        145,
+        233,
+        226,
+        179
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Unauthorized",
+      "msg": "Unauthorized"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidTeam",
+      "msg": "Invalid team selection (use 0 or 1)"
+    },
+    {
+      "code": 6002,
+      "name": "ZeroAmount",
+      "msg": "Bet amount must be > 0"
+    },
+    {
+      "code": 6003,
+      "name": "BetTooSmall",
+      "msg": "Bet below minimum stake"
+    },
+    {
+      "code": 6004,
+      "name": "MarketNotOpen",
+      "msg": "Market is not open for bets"
+    },
+    {
+      "code": 6005,
+      "name": "BettingClosed",
+      "msg": "Betting window has closed"
+    },
+    {
+      "code": 6006,
+      "name": "TeamMismatch",
+      "msg": "Cannot change team on existing receipt"
+    },
+    {
+      "code": 6007,
+      "name": "CannotLock",
+      "msg": "Market cannot be locked yet"
+    },
+    {
+      "code": 6008,
+      "name": "MarketFinal",
+      "msg": "Market is already final"
+    },
+    {
+      "code": 6009,
+      "name": "OracleMismatch",
+      "msg": "Oracle feed mismatch"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidOracleResult",
+      "msg": "Invalid oracle result"
+    },
+    {
+      "code": 6011,
+      "name": "FeedOwnerMismatch",
+      "msg": "Feed is not owned by the Switchboard program"
+    },
+    {
+      "code": 6012,
+      "name": "FeedInvalid",
+      "msg": "Feed account data is invalid"
+    },
+    {
+      "code": 6013,
+      "name": "FeedHashMismatch",
+      "msg": "Feed job hash differs from the one pinned at market creation"
+    },
+    {
+      "code": 6014,
+      "name": "FeedQueueMismatch",
+      "msg": "Feed is on an unexpected oracle queue"
+    },
+    {
+      "code": 6015,
+      "name": "FeedAuthorityNotLocked",
+      "msg": "Feed authority must be the program feed-lock PDA"
+    },
+    {
+      "code": 6016,
+      "name": "FeedWritableByAuthority",
+      "msg": "Feed allows direct writes by its authority"
+    },
+    {
+      "code": 6017,
+      "name": "FeedStale",
+      "msg": "No oracle submission after match end"
+    },
+    {
+      "code": 6018,
+      "name": "InsufficientSamples",
+      "msg": "Not enough oracle samples after match end"
+    },
+    {
+      "code": 6019,
+      "name": "OracleDisagreement",
+      "msg": "Oracle submissions disagree"
+    },
+    {
+      "code": 6020,
+      "name": "ResolveTooEarly",
+      "msg": "Match has not ended yet"
+    },
+    {
+      "code": 6021,
+      "name": "ResolveWindowClosed",
+      "msg": "Resolve window closed; cancel the market instead"
+    },
+    {
+      "code": 6022,
+      "name": "DeadlineNotReached",
+      "msg": "Resolve deadline not reached"
+    },
+    {
+      "code": 6023,
+      "name": "InvalidResolveDeadline",
+      "msg": "Invalid resolve deadline"
+    },
+    {
+      "code": 6024,
+      "name": "PrincipalShortfall",
+      "msg": "Yield park returned less than locked principal"
+    },
+    {
+      "code": 6025,
+      "name": "MarketNotResolved",
+      "msg": "Market not resolved"
+    },
+    {
+      "code": 6026,
+      "name": "MarketNotCancelled",
+      "msg": "Market not cancelled"
+    },
+    {
+      "code": 6027,
+      "name": "AlreadyClaimed",
+      "msg": "Already claimed"
+    },
+    {
+      "code": 6028,
+      "name": "NotWinner",
+      "msg": "Not a winning bet"
+    },
+    {
+      "code": 6029,
+      "name": "MathOverflow",
+      "msg": "Math overflow"
+    },
+    {
+      "code": 6030,
+      "name": "EmptyWinningPool",
+      "msg": "Winning pool is empty"
+    },
+    {
+      "code": 6031,
+      "name": "ObligationsOutstanding",
+      "msg": "Payouts still outstanding"
+    },
+    {
+      "code": 6032,
+      "name": "NothingToHarvest",
+      "msg": "Nothing to harvest"
+    },
+    {
+      "code": 6033,
+      "name": "InvalidTimeWindow",
+      "msg": "Invalid time window"
+    },
+    {
+      "code": 6034,
+      "name": "FaucetCooldown",
+      "msg": "Faucet already used within the last 24h"
+    },
+    {
+      "code": 6035,
+      "name": "InvalidMint",
+      "msg": "Token account has the wrong mint"
+    },
+    {
+      "code": 6036,
+      "name": "InsufficientTreasury",
+      "msg": "Amount exceeds treasury balance"
+    }
   ],
   "types": [
     {
@@ -153,10 +811,18 @@
       "type": {
         "kind": "enum",
         "variants": [
-          { "name": "Open" },
-          { "name": "Locked" },
-          { "name": "Resolved" },
-          { "name": "Cancelled" }
+          {
+            "name": "Open"
+          },
+          {
+            "name": "Locked"
+          },
+          {
+            "name": "Resolved"
+          },
+          {
+            "name": "Cancelled"
+          }
         ]
       }
     },
@@ -165,11 +831,26 @@
       "type": {
         "kind": "struct",
         "fields": [
-          { "name": "authority", "type": "pubkey" },
-          { "name": "usdc_mint", "type": "pubkey" },
-          { "name": "treasury", "type": "pubkey" },
-          { "name": "yield_park", "type": "pubkey" },
-          { "name": "bump", "type": "u8" }
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "usdc_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "yield_park",
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
         ]
       }
     },
@@ -178,23 +859,115 @@
       "type": {
         "kind": "struct",
         "fields": [
-          { "name": "match_id", "type": "u64" },
-          { "name": "authority", "type": "pubkey" },
-          { "name": "usdc_mint", "type": "pubkey" },
-          { "name": "oracle_feed", "type": "pubkey" },
-          { "name": "start_time", "type": "i64" },
-          { "name": "end_time", "type": "i64" },
-          { "name": "pool_team_a", "type": "u64" },
-          { "name": "pool_team_b", "type": "u64" },
-          { "name": "status", "type": { "defined": { "name": "MarketStatus" } } },
-          { "name": "winning_team", "type": { "option": "u8" } },
-          { "name": "team_a", "type": { "array": ["u8", 32] } },
-          { "name": "team_b", "type": { "array": ["u8", 32] } },
-          { "name": "total_yield_harvested", "type": "u64" },
-          { "name": "locked_principal", "type": "u64" },
-          { "name": "yield_shares", "type": "u64" },
-          { "name": "bump", "type": "u8" },
-          { "name": "vault_bump", "type": "u8" }
+          {
+            "name": "match_id",
+            "type": "u64"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "usdc_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "oracle_feed",
+            "type": "pubkey"
+          },
+          {
+            "name": "feed_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "start_time",
+            "type": "i64"
+          },
+          {
+            "name": "end_time",
+            "type": "i64"
+          },
+          {
+            "name": "resolve_deadline",
+            "type": "i64"
+          },
+          {
+            "name": "pool_team_a",
+            "type": "u64"
+          },
+          {
+            "name": "pool_team_b",
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "MarketStatus"
+              }
+            }
+          },
+          {
+            "name": "winning_team",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
+            "name": "cancel_reason",
+            "type": "u8"
+          },
+          {
+            "name": "team_a",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "team_b",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "total_yield_harvested",
+            "type": "u64"
+          },
+          {
+            "name": "locked_principal",
+            "type": "u64"
+          },
+          {
+            "name": "yield_shares",
+            "type": "u64"
+          },
+          {
+            "name": "payout_pool",
+            "type": "u64"
+          },
+          {
+            "name": "claimed_stake",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "vault_bump",
+            "type": "u8"
+          }
         ]
       }
     },
@@ -203,27 +976,50 @@
       "type": {
         "kind": "struct",
         "fields": [
-          { "name": "user", "type": "pubkey" },
-          { "name": "market", "type": "pubkey" },
-          { "name": "team_selected", "type": "u8" },
-          { "name": "amount_staked", "type": "u64" },
-          { "name": "claimed", "type": "bool" },
-          { "name": "bump", "type": "u8" }
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "team_selected",
+            "type": "u8"
+          },
+          {
+            "name": "amount_staked",
+            "type": "u64"
+          },
+          {
+            "name": "claimed",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
         ]
       }
     },
     {
-      "name": "OracleFeed",
+      "name": "FaucetReceipt",
       "type": {
         "kind": "struct",
         "fields": [
-          { "name": "authority", "type": "pubkey" },
-          { "name": "match_id", "type": "u64" },
-          { "name": "market", "type": "pubkey" },
-          { "name": "result", "type": "u8" },
-          { "name": "updated_at", "type": "i64" },
-          { "name": "finalized", "type": "bool" },
-          { "name": "bump", "type": "u8" }
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "last_claim",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
         ]
       }
     }

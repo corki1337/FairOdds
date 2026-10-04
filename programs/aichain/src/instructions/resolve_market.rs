@@ -1,54 +1,62 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer};
+use anchor_spl::token::{Token, TokenAccount};
 use yield_park::program::YieldPark;
 use yield_park::state::Park;
 
 use crate::errors::AichainError;
 use crate::events::MarketResolved;
-use crate::oracle::read_oracle_result;
-use crate::state::{GlobalConfig, MarketState, MarketStatus, OracleFeed};
-use crate::yield_cpi;
+use crate::state::{
+    GlobalConfig, MarketState, MarketStatus, CANCEL_DRAW, CANCEL_NONE, CANCEL_NO_WINNERS,
+    MIN_ORACLE_SAMPLES, SEED_FEED_LOCK, SEED_GLOBAL, SEED_MARKET, SEED_TREASURY, SEED_VAULT,
+    SEED_VERSION,
+};
+use crate::switchboard::{PullFeedView, OUTCOME_DRAW};
+use crate::yield_cpi::{settle_vault, SettleAccounts};
 
+/// Permissionless: anyone may crank once the match is over and the pinned
+/// Switchboard feed carries a post-match, unanimous result.
 #[derive(Accounts)]
 pub struct ResolveMarket<'info> {
     #[account(mut)]
     pub crank: Signer<'info>,
 
     #[account(
-        seeds = [b"global"],
+        seeds = [SEED_VERSION, SEED_GLOBAL],
         bump = global.bump,
         has_one = treasury,
     )]
-    pub global: Account<'info, GlobalConfig>,
+    pub global: Box<Account<'info, GlobalConfig>>,
 
     #[account(
         mut,
-        seeds = [b"market", market.match_id.to_le_bytes().as_ref()],
+        seeds = [SEED_VERSION, SEED_MARKET, market.match_id.to_le_bytes().as_ref()],
         bump = market.bump,
-        constraint = market.status == MarketStatus::Locked @ AichainError::MarketNotLocked,
+        constraint = (market.status == MarketStatus::Open
+            || market.status == MarketStatus::Locked) @ AichainError::MarketFinal,
         constraint = market.oracle_feed == oracle_feed.key() @ AichainError::OracleMismatch,
     )]
-    pub market: Account<'info, MarketState>,
+    pub market: Box<Account<'info, MarketState>>,
 
-    #[account(
-        seeds = [b"oracle", market.match_id.to_le_bytes().as_ref()],
-        bump = oracle_feed.bump,
-    )]
-    pub oracle_feed: Account<'info, OracleFeed>,
+    /// CHECK: owner, queue, authority lock, job hash and submissions validated in handler
+    pub oracle_feed: UncheckedAccount<'info>,
+
+    /// CHECK: PDA that must own the feed; never signs
+    #[account(seeds = [SEED_VERSION, SEED_FEED_LOCK], bump)]
+    pub feed_lock: UncheckedAccount<'info>,
 
     #[account(
         mut,
-        seeds = [b"vault", market.key().as_ref()],
+        seeds = [SEED_VERSION, SEED_VAULT, market.key().as_ref()],
         bump = market.vault_bump,
     )]
-    pub vault: Account<'info, TokenAccount>,
+    pub vault: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
-        seeds = [b"treasury", global.key().as_ref()],
+        seeds = [SEED_VERSION, SEED_TREASURY, global.key().as_ref()],
         bump,
     )]
-    pub treasury: Account<'info, TokenAccount>,
+    pub treasury: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
@@ -56,7 +64,7 @@ pub struct ResolveMarket<'info> {
         bump = park.bump,
         seeds::program = yield_park_program.key(),
     )]
-    pub park: Account<'info, Park>,
+    pub park: Box<Account<'info, Park>>,
 
     #[account(
         mut,
@@ -64,9 +72,9 @@ pub struct ResolveMarket<'info> {
         bump = park.vault_bump,
         seeds::program = yield_park_program.key(),
     )]
-    pub park_vault: Account<'info, TokenAccount>,
+    pub park_vault: Box<Account<'info, TokenAccount>>,
 
-    /// CHECK: yield position PDA for market
+    /// CHECK: yield position PDA for market (seeds checked by yield_park on withdraw)
     #[account(mut)]
     pub position: UncheckedAccount<'info>,
 
@@ -75,77 +83,58 @@ pub struct ResolveMarket<'info> {
 }
 
 pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
-    let result = read_oracle_result(&ctx.accounts.oracle_feed, ctx.accounts.market.key())?;
+    let now = Clock::get()?.unix_timestamp;
+    let end_time = ctx.accounts.market.end_time;
+    require!(now >= end_time, AichainError::ResolveTooEarly);
+    require!(
+        now < ctx.accounts.market.resolve_deadline,
+        AichainError::ResolveWindowClosed
+    );
 
-    let principal = ctx.accounts.market.locked_principal;
-    let shares = ctx.accounts.market.yield_shares;
+    let feed = PullFeedView::load(&ctx.accounts.oracle_feed.to_account_info())?;
+    feed.verify_immutable(&ctx.accounts.feed_lock.key())?;
+    require!(
+        feed.feed_hash == ctx.accounts.market.feed_hash,
+        AichainError::FeedHashMismatch
+    );
+    let result = feed.outcome(end_time, MIN_ORACLE_SAMPLES)?;
+
     let market_key = ctx.accounts.market.key();
-
-    let mut yield_harvested = 0u64;
-
-    if shares > 0 {
-        let vault_before = ctx.accounts.vault.amount;
-
-        yield_cpi::withdraw_from_park(
-            &ctx.accounts.market,
-            ctx.accounts.market.to_account_info(),
-            ctx.accounts.yield_park_program.to_account_info(),
-            ctx.accounts.park.to_account_info(),
-            ctx.accounts.vault.to_account_info(),
-            ctx.accounts.park_vault.to_account_info(),
-            ctx.accounts.position.to_account_info(),
-            ctx.accounts.token_program.to_account_info(),
-            shares,
-        )?;
-
-        // Reload vault amount after CPI
-        ctx.accounts.vault.reload()?;
-        let vault_after = ctx.accounts.vault.amount;
-        let returned = vault_after.saturating_sub(vault_before);
-
-        if returned > principal {
-            yield_harvested = returned.saturating_sub(principal);
-            // Transfer yield surplus to treasury (market PDA signs)
-            let match_id_bytes = ctx.accounts.market.match_id.to_le_bytes();
-            let seeds = &[
-                b"market".as_ref(),
-                match_id_bytes.as_ref(),
-                &[ctx.accounts.market.bump],
-            ];
-            let signer = &[&seeds[..]];
-
-            token::transfer(
-                CpiContext::new_with_signer(
-                    ctx.accounts.token_program.to_account_info(),
-                    Transfer {
-                        from: ctx.accounts.vault.to_account_info(),
-                        to: ctx.accounts.treasury.to_account_info(),
-                        authority: ctx.accounts.market.to_account_info(),
-                    },
-                    signer,
-                ),
-                yield_harvested,
-            )?;
-        }
-    }
+    let yield_harvested = settle_vault(SettleAccounts {
+        market: &mut ctx.accounts.market,
+        vault: &mut ctx.accounts.vault,
+        treasury: ctx.accounts.treasury.to_account_info(),
+        park: ctx.accounts.park.to_account_info(),
+        park_vault: ctx.accounts.park_vault.to_account_info(),
+        position: ctx.accounts.position.to_account_info(),
+        yield_program: ctx.accounts.yield_park_program.to_account_info(),
+        token_program: ctx.accounts.token_program.to_account_info(),
+    })?;
 
     let market = &mut ctx.accounts.market;
-    market.total_yield_harvested = yield_harvested;
-    market.yield_shares = 0;
-
-    let cancelled = result == 2;
-    if cancelled {
-        market.status = MarketStatus::Cancelled;
-        market.winning_team = None;
+    let cancel_reason = if result == OUTCOME_DRAW {
+        CANCEL_DRAW
+    } else if market.pool_of(result) == 0 {
+        CANCEL_NO_WINNERS
     } else {
+        CANCEL_NONE
+    };
+
+    if cancel_reason == CANCEL_NONE {
         market.status = MarketStatus::Resolved;
         market.winning_team = Some(result);
+    } else {
+        market.status = MarketStatus::Cancelled;
+        market.winning_team = None;
     }
+    market.cancel_reason = cancel_reason;
 
     emit!(MarketResolved {
         market: market_key,
+        oracle_result: result,
         winning_team: market.winning_team,
-        cancelled,
+        cancel_reason,
+        payout_pool: market.payout_pool,
         yield_harvested,
     });
 

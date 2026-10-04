@@ -4,8 +4,8 @@ import { Nav } from "@/components/Nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Aichain — Pari-Mutuel Pools on Solana",
-  description: "Decentralized mutual wagering with yield on idle capital",
+  title: "FairOdds — Real-match pools on Solana",
+  description: "Prematch pari-mutuel bookmaker. Odds from the pool, results from TheSportsDB via Switchboard.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

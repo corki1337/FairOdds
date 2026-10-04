@@ -1,10 +1,13 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::{self, TokenAccount, Transfer};
 use yield_park::cpi::accounts::{Deposit as YieldDeposit, Withdraw as YieldWithdraw};
 
 use crate::errors::AichainError;
-use crate::state::MarketState;
+use crate::market_signer;
+use crate::state::{MarketState, PRINCIPAL_DUST_TOLERANCE};
 
 /// Deposit market vault USDC into yield_park via CPI. Market PDA is the owner.
+#[allow(clippy::too_many_arguments)]
 pub fn deposit_to_park<'info>(
     market: &Account<'info, MarketState>,
     market_ai: AccountInfo<'info>,
@@ -19,13 +22,8 @@ pub fn deposit_to_park<'info>(
     amount: u64,
 ) -> Result<()> {
     require!(amount > 0, AichainError::ZeroAmount);
-    let match_id_bytes = market.match_id.to_le_bytes();
-    let seeds = &[
-        b"market".as_ref(),
-        match_id_bytes.as_ref(),
-        &[market.bump],
-    ];
-    let signer = &[&seeds[..]];
+    market_signer!(market, id, bump, seeds);
+    let signer = &[seeds];
 
     let cpi_accounts = YieldDeposit {
         owner: market_ai,
@@ -42,6 +40,7 @@ pub fn deposit_to_park<'info>(
 }
 
 /// Withdraw shares from yield_park back to market vault.
+#[allow(clippy::too_many_arguments)]
 pub fn withdraw_from_park<'info>(
     market: &Account<'info, MarketState>,
     market_ai: AccountInfo<'info>,
@@ -54,13 +53,8 @@ pub fn withdraw_from_park<'info>(
     shares: u64,
 ) -> Result<()> {
     require!(shares > 0, AichainError::ZeroAmount);
-    let match_id_bytes = market.match_id.to_le_bytes();
-    let seeds = &[
-        b"market".as_ref(),
-        match_id_bytes.as_ref(),
-        &[market.bump],
-    ];
-    let signer = &[&seeds[..]];
+    market_signer!(market, id, bump, seeds);
+    let signer = &[seeds];
 
     let cpi_accounts = YieldWithdraw {
         owner: market_ai,
@@ -72,4 +66,65 @@ pub fn withdraw_from_park<'info>(
     };
     let cpi_ctx = CpiContext::new_with_signer(yield_program, cpi_accounts, signer);
     yield_park::cpi::withdraw(cpi_ctx, shares)
+}
+
+pub struct SettleAccounts<'a, 'info> {
+    pub market: &'a mut Box<Account<'info, MarketState>>,
+    pub vault: &'a mut Box<Account<'info, TokenAccount>>,
+    pub treasury: AccountInfo<'info>,
+    pub park: AccountInfo<'info>,
+    pub park_vault: AccountInfo<'info>,
+    pub position: AccountInfo<'info>,
+    pub yield_program: AccountInfo<'info>,
+    pub token_program: AccountInfo<'info>,
+}
+
+/// Pulls principal + yield back from yield_park (if locked), sends anything above the
+/// bettors' total pool to the treasury and fixes `payout_pool`. Returns the yield sent.
+pub fn settle_vault(a: SettleAccounts) -> Result<u64> {
+    let shares = a.market.yield_shares;
+    if shares > 0 {
+        let before = a.vault.amount;
+        withdraw_from_park(
+            a.market,
+            a.market.to_account_info(),
+            a.yield_program.clone(),
+            a.park.clone(),
+            a.vault.to_account_info(),
+            a.park_vault.clone(),
+            a.position.clone(),
+            a.token_program.clone(),
+            shares,
+        )?;
+        a.vault.reload()?;
+        let returned = a.vault.amount.saturating_sub(before);
+        require!(
+            returned.saturating_add(PRINCIPAL_DUST_TOLERANCE) >= a.market.locked_principal,
+            AichainError::PrincipalShortfall
+        );
+        a.market.yield_shares = 0;
+    }
+
+    let total_pool = a.market.total_pool();
+    let balance = a.vault.amount;
+    let surplus = balance.saturating_sub(total_pool);
+    if surplus > 0 {
+        market_signer!(a.market, id, bump, seeds);
+        token::transfer(
+            CpiContext::new_with_signer(
+                a.token_program.clone(),
+                Transfer {
+                    from: a.vault.to_account_info(),
+                    to: a.treasury.clone(),
+                    authority: a.market.to_account_info(),
+                },
+                &[seeds],
+            ),
+            surplus,
+        )?;
+    }
+
+    a.market.payout_pool = balance.min(total_pool);
+    a.market.total_yield_harvested = surplus;
+    Ok(surplus)
 }

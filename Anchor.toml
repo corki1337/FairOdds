@@ -6,12 +6,12 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-aichain = "CYizbVKeAyuiZUh9RBKhSw9m2o2CzFDxg95yLJWhJvUW"
-yield_park = "H6wcSEryWtp2rmEu56qCi7zXMd6pmrAMH9cKHxDuM4ET"
+aichain = "4FNHp1MjhJTqZZqQq333qrDBduT9orpF4zMTdXXUT1dg"
+yield_park = "6XUoUhwMgdurDYu47VKEpqAKczbkY36H22xHr9o9DNHS"
 
 [programs.devnet]
-aichain = "CYizbVKeAyuiZUh9RBKhSw9m2o2CzFDxg95yLJWhJvUW"
-yield_park = "H6wcSEryWtp2rmEu56qCi7zXMd6pmrAMH9cKHxDuM4ET"
+aichain = "4FNHp1MjhJTqZZqQq333qrDBduT9orpF4zMTdXXUT1dg"
+yield_park = "6XUoUhwMgdurDYu47VKEpqAKczbkY36H22xHr9o9DNHS"
 
 [registry]
 url = "https://api.apr.dev"
@@ -21,7 +21,7 @@ cluster = "Localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+test = "cargo test --manifest-path tests/program-test/Cargo.toml --test integration"
 
 [test]
 startup_wait = 10000

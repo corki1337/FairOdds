@@ -13,12 +13,22 @@ app/out/
 .env.local
 *.log
 deploy-config.json
+demo-state.json
+.house-bettors.json
+fixture-markets.json
+smoke-result.json
+fixture-markets.json
 wallet*.json
 .docker-build-image
 !app/package.json
 
 *-keypair.json
-
-
 *.tsbuildinfo
+
+.tools/
+*.pdf.*.txt
+*.pdf.txt
+aichain-extracted.txt
+validator.out
+validator.err
 

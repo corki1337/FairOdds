@@ -10,8 +10,9 @@ import { AIchAIN_PROGRAM_ID } from "@/lib/ids";
 /** Loose account helpers — stub IDL lacks full coder metadata until `anchor build`. */
 export type AichainAccounts = {
   marketState: {
-    all: () => Promise<Array<{ publicKey: PublicKey; account: any }>>;
+    all: (filters?: unknown[]) => Promise<Array<{ publicKey: PublicKey; account: any }>>;
     fetch: (key: PublicKey) => Promise<any>;
+    size: number;
   };
   userBetReceipt: {
     fetch: (key: PublicKey) => Promise<any>;
@@ -26,7 +27,12 @@ export function useAichainProgram() {
   const wallet = useWallet();
 
   return useMemo(() => {
-    if (!wallet.publicKey || !wallet.signTransaction) return null;
+    // Read-only without a wallet so markets and pools are visible before connecting.
+    if (!wallet.publicKey || !wallet.signTransaction) {
+      return new Program(aichainIdl as Idl, { connection }) as Program<Idl> & {
+        account: AichainAccounts;
+      };
+    }
     const provider = new AnchorProvider(
       connection,
       wallet as unknown as AnchorProvider["wallet"],

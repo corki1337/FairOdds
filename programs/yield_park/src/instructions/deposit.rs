@@ -52,7 +52,7 @@ pub fn handler(ctx: Context<Deposit>, amount: u64) -> Result<()> {
 
     let park = &mut ctx.accounts.park;
     let clock = Clock::get()?;
-    park.accrue(clock.unix_timestamp);
+    park.accrue(clock.unix_timestamp, ctx.accounts.park_vault.amount);
 
     let shares = park.shares_for_amount(amount)?;
     require!(shares > 0, YieldError::ZeroAmount);
@@ -69,8 +69,14 @@ pub fn handler(ctx: Context<Deposit>, amount: u64) -> Result<()> {
         amount,
     )?;
 
-    park.total_deposits = park.total_deposits.saturating_add(amount);
-    park.total_shares = park.total_shares.saturating_add(shares);
+    park.total_deposits = park
+        .total_deposits
+        .checked_add(amount)
+        .ok_or(error!(YieldError::MathOverflow))?;
+    park.total_shares = park
+        .total_shares
+        .checked_add(shares)
+        .ok_or(error!(YieldError::MathOverflow))?;
 
     let position = &mut ctx.accounts.position;
     if position.owner == Pubkey::default() {

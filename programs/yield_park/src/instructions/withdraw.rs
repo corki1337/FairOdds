@@ -51,7 +51,7 @@ pub fn handler(ctx: Context<Withdraw>, shares: u64) -> Result<()> {
 
     let park = &mut ctx.accounts.park;
     let clock = Clock::get()?;
-    park.accrue(clock.unix_timestamp);
+    park.accrue(clock.unix_timestamp, ctx.accounts.park_vault.amount);
 
     let amount = park.amount_for_shares(shares)?;
     require!(

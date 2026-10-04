@@ -6,7 +6,7 @@ use yield_park::state::{Park, Position};
 
 use crate::errors::AichainError;
 use crate::events::MarketLocked;
-use crate::state::{GlobalConfig, MarketState, MarketStatus};
+use crate::state::{GlobalConfig, MarketState, MarketStatus, SEED_GLOBAL, SEED_MARKET, SEED_VAULT, SEED_VERSION};
 use crate::yield_cpi;
 
 #[derive(Accounts)]
@@ -14,23 +14,23 @@ pub struct LockMarket<'info> {
     #[account(mut)]
     pub crank: Signer<'info>,
 
-    #[account(seeds = [b"global"], bump = global.bump)]
-    pub global: Account<'info, GlobalConfig>,
+    #[account(seeds = [SEED_VERSION, SEED_GLOBAL], bump = global.bump)]
+    pub global: Box<Account<'info, GlobalConfig>>,
 
     #[account(
         mut,
-        seeds = [b"market", market.match_id.to_le_bytes().as_ref()],
+        seeds = [SEED_VERSION, SEED_MARKET, market.match_id.to_le_bytes().as_ref()],
         bump = market.bump,
         constraint = market.status == MarketStatus::Open @ AichainError::MarketNotOpen,
     )]
-    pub market: Account<'info, MarketState>,
+    pub market: Box<Account<'info, MarketState>>,
 
     #[account(
         mut,
-        seeds = [b"vault", market.key().as_ref()],
+        seeds = [SEED_VERSION, SEED_VAULT, market.key().as_ref()],
         bump = market.vault_bump,
     )]
-    pub vault: Account<'info, TokenAccount>,
+    pub vault: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
@@ -38,7 +38,7 @@ pub struct LockMarket<'info> {
         bump = park.bump,
         seeds::program = yield_park_program.key(),
     )]
-    pub park: Account<'info, Park>,
+    pub park: Box<Account<'info, Park>>,
 
     #[account(
         mut,
@@ -46,9 +46,9 @@ pub struct LockMarket<'info> {
         bump = park.vault_bump,
         seeds::program = yield_park_program.key(),
     )]
-    pub park_vault: Account<'info, TokenAccount>,
+    pub park_vault: Box<Account<'info, TokenAccount>>,
 
-    /// CHECK: init_if_needed inside yield_park CPI
+    /// CHECK: init_if_needed inside yield_park CPI (seeds checked there)
     #[account(mut)]
     pub position: UncheckedAccount<'info>,
 
@@ -63,18 +63,15 @@ pub fn handler(ctx: Context<LockMarket>) -> Result<()> {
         clock.unix_timestamp >= ctx.accounts.market.start_time,
         AichainError::CannotLock
     );
+    require!(
+        clock.unix_timestamp < ctx.accounts.market.resolve_deadline,
+        AichainError::ResolveWindowClosed
+    );
 
     let amount = ctx.accounts.vault.amount;
     let market_key = ctx.accounts.market.key();
 
     if amount > 0 {
-        // Snapshot shares before deposit
-        let shares_before = {
-            // Position may not exist yet
-            0u64
-        };
-        let _ = shares_before;
-
         yield_cpi::deposit_to_park(
             &ctx.accounts.market,
             ctx.accounts.market.to_account_info(),
@@ -89,7 +86,6 @@ pub fn handler(ctx: Context<LockMarket>) -> Result<()> {
             amount,
         )?;
 
-        // After CPI, read position shares from account data via try_deserialize
         let position_data = ctx.accounts.position.try_borrow_data()?;
         let mut data_slice: &[u8] = &position_data;
         let position_state = Position::try_deserialize(&mut data_slice)?;
