@@ -1,7 +1,7 @@
-# Export slides to PDF
+# Prezentacja FairOdds
 
-1. Open `presentation/slides.html` in Chrome/Edge
-2. Print → Save as PDF, landscape, background graphics ON
-3. Submit the PDF (≤10 slides already)
+1. Otwórz `slides.html` w Chrome/Edge
+2. Drukuj → Zapisz jako PDF, landscape, tła włączone
+3. Tekst mówiony: `docs/NARRACJA.md` (≤10 slajdów, ≤3 min filmu)
 
-Backup video: record a ≤3 minute walkthrough of bet → lock → resolve → claim before the live demo (brief requires a public link).
+Backup: nagraj bet → lock → resolve → claim *przed* sceną. Link publiczny jest wymagany przez zasady.

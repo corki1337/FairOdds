@@ -1,5 +1,7 @@
 # FairOdds — Demo checklist
 
+Scenariusz mówiony i slajdy: [`NARRACJA.md`](NARRACJA.md). Co się dzieje w kodzie: [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md).
+
 ## Before stage
 
 - [ ] Devnet SOL on admin + 2 demo wallets

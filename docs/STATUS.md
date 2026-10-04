@@ -5,6 +5,8 @@ Ostatnia aktualizacja: **2026-10-04**
 Produkt: **FairOdds** — bukmacher na prawdziwych meczach (TheSportsDB + Switchboard).  
 Programy on-chain nadal nazywają się `aichain` / `yield_park`.
 
+Dokumentacja zgłoszenia: [`../README.md`](../README.md), [`DESIGN.md`](DESIGN.md), [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md), [`NARRACJA.md`](NARRACJA.md).
+
 ## Zrobione
 
 - [x] Scaffold Anchor + Next.js

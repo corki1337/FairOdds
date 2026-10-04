@@ -1,37 +1,63 @@
-# Design rationale — Aichain
+# Uzasadnienie projektowe — FairOdds
 
-## Financial relationship redesigned
+Wymagane przez zasady Superteam (§3): jaka relacja, kto był pośrednikiem, co zmienia jego usunięcie, dla kogo to jest.
 
-**Before:** Bettor ↔ Bookmaker ↔ Event outcome.  
-The bookmaker is a trusted intermediary: custody of stakes, discretion over odds/payouts, unilateral risk of freeze or insolvency.
+## Relacja finansowa
 
-**After:** Bettor ↔ On-chain pool ↔ Oracle feed.  
-Terms live in the `aichain` program. Neither party can rewrite the payout formula after betting. Custody is a PDA vault; idle capital is deposited into `yield_park` via CPI while the market is locked.
+**Przed:** gracz obstawia mecz u bukmachera. Oddaje pieniądze, dostaje kurs, czeka na werdykt biura.
 
-## Who the intermediary was
+**Po:** dwóch (albo stu) graczy wkłada USDC do wspólnej puli na Solanie. Kurs jest pochodną udziałów w puli. Werdykt to znak różnicy bramek z publicznego API, podpisany przez sieć oracle. Wypłata to dzielenie całkowite, nie decyzja człowieka.
 
-A licensed (or grey-market) bookmaker / prediction operator who:
+To ten sam wzorzec, który zasady podają przy lendingu: nie ufasz drugiej stronie ani instytucji, ufasz regule, której nikt nie obejdzie.
 
-1. Took custody of USDC-equivalent stakes  
-2. Published odds (and could change them)  
-3. Decided when/if to pay winners  
+## Kto był pośrednikiem
 
-## What changes when they are removed
+Bukmacher / szara platforma / „crypto betting telegram”:
 
-| Risk | Mitigation on-chain |
-|------|---------------------|
-| Operator absconds with pool | Funds in market vault / yield position PDAs |
-| Selective payout | `claim_winnings` math is deterministic |
-| Betting after kickoff | `Clock` vs `start_time` in `place_bet` |
-| Fake result | `oracle_feed` pubkey bound at `initialize_market`; resolve rejects any other account |
-| Match cancelled | Oracle result `2` → `Cancelled` → full `refund` |
+1. Custody stawek
+2. Księga kursów (może ją zmienić)
+3. Desk, który uznaje wynik i wypłaca — albo nie
 
-Platform revenue is **yield on idle capital**, not a vig taken from winners (`payout = stake * total / winning_pool`, floor rounding).
+On zarabia na vig, na opóźnieniach, na tym, że przegrany nie ma do kogo iść.
 
-## Compliance note (implementation potential)
+## Co znika razem z nim
 
-This MVP is a **devnet demo** of mutual pools / prediction settlement. Production deployment requires jurisdiction-specific compliance (or a pivot of the same contracts to parametric insurance, milestone escrow, or B2B event settlement). The core program is domain-agnostic: only labels and oracle HTTP jobs change.
+Nie znika *źródło wyniku* — mecz i tak ktoś musi zmierzyć. Znika **władza nad kasą i nad wzorem**.
 
-## Target user
+- Stawki nie są na koncie spółki. Są na vault PDA, którego authority to sam rynek.
+- Kursu nikt nie publikuje z góry. `implied odds = całkowita pula / pula strony`.
+- `claim_winnings` nie pyta admina. Pyta: czy Twój `team_selected` == `winning_team` i czy jeszcze nie brałeś.
+- Admin nie ma instrukcji „ustaw wynik”. `set_oracle_result` zostało usunięte.
+- Remis i cisza oracle nie zostawiają kasy w próżni: zwrot 100%.
 
-Esports fans betting on match winners (demo: CS2 NaVi vs FaZe) who want transparent pool odds and automatic settlement.
+Zostaje świadome, dozwolone przez zasady zaufanie do **Switchboard + TheSportsDB**. To nie jest nasz backend. Nasz serwer nie jest w pathu rozliczenia.
+
+## Dla kogo
+
+**Główny użytkownik:** osoba obstawiająca prawdziwe mecze (piłka nożna, LoL), która nie chce oddawać kasy i werdyktu jednemu biuru.
+
+Język UI: polski, „gospodarze / goście / pula / claim”, nie „PDA / discriminator”.
+
+**Świadomy pivot (potencjał wdrożeniowy, 15% oceny):** ten sam program, inne etykiety:
+
+- ubezpieczenie parametryczne — „mecz odwołany w ciągu 24h → zwrot składki”
+- escrow freelancera — „milestone z merge’a / podpisu klienta → wypłata”
+- rozliczenie B2B — „indeks / dostawa vs próg → split”
+
+Dlatego crate nazywa się nadal `aichain`: domain-agnostic settlement, FairOdds to pierwsza skóra.
+
+## Model przychodu bez vig
+
+`payout = floor(stake × payout_pool / winning_pool)`.
+
+Nie ucinamy wygranej. Między `lock` a `resolve` kapitał leży w `yield_park` (na hackathon własny mikro-protokół; produkcyjnie ten sam adapter → Kamino). Odsetki i kurz zaokrągleń idą do treasury. Vaultów graczy `withdraw_treasury` nie widzi.
+
+## Czemu blockchain, nie baza
+
+Operator bazy:
+
+- edytuje wiersz `claimed = true` bez wypłaty,
+- wyłącza endpoint w niedzielę wieczór,
+- trzyma USDC na swoim koncie.
+
+Tu każda stawka i każda wypłata ma sygnaturę na Solanie. Explorer jest dowodem, nie screenshotem z panelu admina.

@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pl">
 <head>
   <meta charset="utf-8" />
-  <title>Aichain — Superteam Poland</title>
+  <title>FairOdds — Superteam Poland</title>
   <style>
     @page { size: landscape; margin: 0; }
     * { box-sizing: border-box; }
@@ -31,18 +31,83 @@
     ul { padding-left: 1.2em; }
     table { border-collapse: collapse; width: 100%; }
     td, th { border-bottom: 1px solid #243049; padding: .55em .4em; text-align: left; font-size: 1.15rem; }
+    .small { font-size: 1.05rem; color: #8b97ab; }
   </style>
 </head>
 <body>
-  <section class="slide"><h1>Aichain</h1><p>Finance without the bookmaker — pari-mutuel pools on <span class="accent">Solana</span></p><p>Superteam Poland Challenge</p></section>
-  <section class="slide"><h2>Problem</h2><p>Classic betting needs a trusted intermediary who holds funds, sets odds, and decides payouts.</p><p>That intermediary can delay, censor, or fail — and always takes a margin.</p></section>
-  <section class="slide"><h2>Insight</h2><p>Write the terms into a Solana program. Custody in a PDA vault. Payouts are math, not discretion.</p></section>
-  <section class="slide"><h2>Product</h2><ul><li>Binary markets (NaVi vs FaZe)</li><li>demo-USDC on devnet</li><li>Mutual pool odds that update with every bet</li><li>Target user: esports fans</li></ul></section>
-  <section class="slide"><h2>Payouts</h2><p><code>payout = floor(stake × total_pool / winning_pool)</code></p><p>No vig from winners. Platform earns <span class="accent">yield</span> on idle capital via CPI to <code>yield_park</code>.</p></section>
-  <section class="slide"><h2>Architecture</h2><ul><li><code>aichain</code> — markets, bets, resolve, claim</li><li><code>yield_park</code> — deposit/withdraw + APR shares</li><li>OracleFeed PDA fixed at market init</li><li>HTTP source for Switchboard: <code>/api/oracle/[id]</code></li></ul></section>
-  <section class="slide"><h2>Live demo</h2><ol><li>Place bets (2 wallets)</li><li>Lock → CPI into yield_park</li><li>Oracle finalize → Resolve</li><li>Claim / Refund — show Solscan</li></ol></section>
-  <section class="slide"><h2>Trust boundaries</h2><table><tr><th>Trustless</th><th>Still external</th></tr><tr><td>Custody, payout math, refunds</td><td>Oracle data input</td></tr><tr><td>No admin rewrite after resolve</td><td>Match result source API</td></tr></table></section>
-  <section class="slide"><h2>Implementation potential</h2><p>Same contracts pivot to parametric insurance, milestone escrow, or licensed markets.</p><p>Devnet MVP today → compliance / real sports API next.</p></section>
-  <section class="slide"><h2>Ask</h2><p>Feedback from Superteam mentors.</p><p>Continue building toward a grant-ready public demo.</p></section>
+  <section class="slide">
+    <h1>FairOdds</h1>
+    <p>Finanse <span class="accent">bez bukmachera</span> — pula wzajemna na prawdziwe mecze.</p>
+    <p>Solana · Superteam Poland · Finance Without Intermediaries</p>
+  </section>
+
+  <section class="slide">
+    <h2>Problem</h2>
+    <p>Klasyczny zakład wymaga pośrednika, który trzyma kasę, ustala kurs i orzeka wynik.</p>
+    <p>Może opóźnić, uciąć kupon albo zniknąć. Zawsze bierze vig.</p>
+  </section>
+
+  <section class="slide">
+    <h2>Pytanie z wyzwania</h2>
+    <p>Gdzie musisz komuś zaufać, żeby transakcja doszła do skutku?</p>
+    <p>Przy meczu: <span class="accent">biuru</span> — i temu, że wypłaci przegranemu, którego nie zna.</p>
+  </section>
+
+  <section class="slide">
+    <h2>Insight</h2>
+    <p>Warunki w programie. Custody w PDA. Wypłata to matematyka, nie decyzja.</p>
+    <p>Wynik zostawiamy na zewnątrz: Switchboard czyta TheSportsDB. Nasz serwer nie sędziuje.</p>
+  </section>
+
+  <section class="slide">
+    <h2>Dla kogo</h2>
+    <ul>
+      <li>Osoby obstawiające <span class="accent">prawdziwe mecze</span> (piłka, esport)</li>
+      <li>UI po polsku — nie narzędzie dla deweloperów</li>
+      <li>Prematch, kurs z puli, remis = zwrot</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <h2>Jak działa dziś</h2>
+    <ul>
+      <li>Zakład do gwizdka → vault PDA</li>
+      <li>Lock → idle USDC w yield_park</li>
+      <li>Resolve: <code>intHomeScore − intAwayScore</code></li>
+      <li>Claim permissionless · 0% vig · yield → treasury</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <h2>Demo na łańcuchu</h2>
+    <p>Dwa portfele. Potwierdzona transakcja. Explorer.</p>
+    <p>Sevilla <span class="accent">1:3</span> Barcelona → zwycięzca <span class="accent">400 USDC</span>.</p>
+    <p class="small">TheSportsDB idEvent 2506233 · program 4FNH…UT1dg · devnet</p>
+  </section>
+
+  <section class="slide">
+    <h2>Gdzie znika pośrednik</h2>
+    <table>
+      <tr><th>Trustless</th><th>Zewnętrzne (świadomie)</th></tr>
+      <tr><td>Custody, wzór, refund, brak set_result</td><td>TheSportsDB + sieć Switchboard</td></tr>
+      <tr><td>Feed-lock PDA nigdy nie podpisuje</td><td>Admin tylko listuje mecze</td></tr>
+    </table>
+  </section>
+
+  <section class="slide">
+    <h2>Ograniczenia, o których mówimy</h2>
+    <ul>
+      <li>Upgrade authority jeszcze nasza — freeze po audycie</li>
+      <li>Jedno publiczne źródło wyniku (free tier)</li>
+      <li>Devnet, demo-USDC — zgodnie z zasadami</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <h2>Co dalej</h2>
+    <p>Ten sam program: <span class="accent">polisa parametryczna</span>, escrow milestone, split B2B.</p>
+    <p>Kamino zamiast demo yield. Drugi oracle. 1X2.</p>
+    <p>Prosimy o feedback i ścieżkę grantu Superteam / Solana Foundation.</p>
+  </section>
 </body>
 </html>

@@ -1,36 +1,40 @@
-# Pitch answers (Superteam judges)
+# Odpowiedzi dla jurorów Superteam
 
-## Where does the intermediary disappear?
+## Gdzie dokładnie w kodzie znika pośrednik?
 
-In `programs/aichain/src/instructions/claim_winnings.rs` and `refund.rs`: payout/refund math and token transfers are enforced by the program. The vault authority is the market PDA — no admin signature is required to pay a rightful claim.
+W `programs/aichain/src/instructions/claim_winnings.rs` i `refund.rs`. Matematyka i transfer tokenów egzekwuje program. Authority vaultu to PDA rynku — do wypłaty nie potrzeba podpisu admina.
 
-The admin also has no say in the result. Each market pins a Switchboard On-Demand PullFeed at creation (`initialize_market` stores the feed address and its job hash). In the same transaction the feed's authority is handed to the program's `feed-lock` PDA, which no instruction ever signs for, so the job (TheSportsDB `lookupevent.php`) can never be swapped and the authority can never write values directly. `resolve_market` is permissionless and only accepts oracle-signed submissions that landed after the match ended, all agreeing, decoded as the sign of `home − away`. See `programs/aichain/src/switchboard.rs`.
+Admin nie ma głosu w wyniku. Przy tworzeniu rynku przypinany jest feed Switchboard (`initialize_market` zapisuje adres i `feed_hash`). W tej samej transakcji authority feedu idzie do PDA `feed-lock`, której żadna instrukcja nie podpisuje. Job (TheSportsDB `lookupevent.php`) nie da się podmienić, authority nie zapisze wartości ręcznie. `resolve_market` jest permissionless i bierze tylko podpisane próbki po końcu meczu, zgodne, zdekodowane jako znak `home − away`. Zobacz `programs/aichain/src/switchboard.rs`.
 
-## What if a party disappears mid-flow?
+## Co jeśli strona zniknie w połowie?
 
-- After `place_bet`, USDC is in the market vault (or in `yield_park` after lock).
-- Anyone can `lock_market` after start and `resolve_market` after the match end — no admin needed.
-- If no valid oracle result arrives before `resolve_deadline` (5 min – 30 days after end, fixed at creation), anyone can call `cancel_expired`: principal is pulled back from `yield_park` and every bettor gets a full refund.
-- `claim_winnings` / `refund` have no time limit and need no counterparty.
+- Po `place_bet` USDC jest w vault rynku (albo w `yield_park` po locku).
+- Każdy może zrobić `lock_market` po starcie i `resolve_market` po końcu — bez admina.
+- Jeśli nie ma poprawnego wyniku przed `resolve_deadline`, każdy woła `cancel_expired`: kapitał wraca z parku, każdy dostaje pełny zwrot.
+- `claim_winnings` / `refund` nie mają limitu czasu i nie potrzebują kontrahenta.
 
-## Permissions after deploy
+## Kto ma jakie uprawnienia po deployu?
 
-| Action | Who |
+| Akcja | Kto |
 |--------|-----|
-| `initialize_global` / `initialize_market` | Global authority (cannot pick the result) |
-| `place_bet` / `claim_winnings` / `refund` | User |
-| `lock_market` / `resolve_market` / `cancel_expired` | Anyone (crank) |
-| `harvest_to_treasury` | Anyone, only once every eligible bettor was paid (dust only) |
-| Change result or move pool funds | Nobody |
+| `initialize_global` / `initialize_market` | Authority (nie wybiera wyniku) |
+| `place_bet` / `claim_winnings` / `refund` | Użytkownik |
+| `lock_market` / `resolve_market` / `cancel_expired` | Ktokolwiek |
+| `harvest_to_treasury` | Ktokolwiek, dopiero gdy wszyscy uprawnieni odebrali |
+| `withdraw_treasury` | Authority, tylko treasury — nie vaulty |
+| Zmiana wyniku albo ruszenie puli | Nikt |
 
-Program upgrade authority: `scripts/freeze-upgrade-authority.ts` sets it to `None` once the demo build is final.
+Upgrade authority programu jest nadal nasza. `scripts/freeze-upgrade-authority.ts` ustawia ją na `None`. Na demo mówimy, że to świadomy haczyk, nie ukrywamy go.
 
-## Why blockchain, not a database?
+## Czemu blockchain, a nie zwykła baza?
 
-A database operator is still an intermediary: they can edit balances, censor claims, or go offline with custody. Here settlement rules and custody are on Solana; explorers prove every stake and payout.
+Operator bazy jest dalej pośrednikiem: edytuje salda, cenzuruje claim, idzie offline z custody. Tu reguły i kasa są na Solanie. Explorer dowodzi każdej stawki i wypłaty.
 
-## If we had another week
+## Co dalej, gdyby był jeszcze tydzień?
 
-1. More oracles per feed and a paid sports-data job if TheSportsDB free-tier rate limits become a problem.
-2. Optional Kamino CPI behind the same yield adapter interface.
-3. Multi-outcome markets + mobile polish.
+1. Drugi, płatny feed obok TheSportsDB (rate-limit free tier).
+2. CPI do Kamino za tym samym interfejsem co `yield_park`.
+3. Freeze upgrade authority po ostatnim audycie.
+4. Rynki 1X2 i mobile.
+
+To jest **kierunek**, nie zrobiona robota. Na slajdzie 10 i w ostatnich 20 sekundach filmu.
