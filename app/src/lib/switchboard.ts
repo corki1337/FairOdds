@@ -1,10 +1,12 @@
 /**
  * Switchboard On-Demand helpers shared by the app and the devnet scripts.
  *
- * Each market pins one PullFeed whose single job reads the final score of one real fixture
- * straight from TheSportsDB and reports `home - away`. Nothing we run is in that path.
- * The feed authority is handed to aichain's `feed-lock` PDA in the same transaction that
- * creates the market, so nobody can change the job, queue or write values later.
+ * Each market pins a primary PullFeed whose single job reads the final score of one real
+ * fixture straight from TheSportsDB and reports `home - away`. Markets whose league is also
+ * covered by OpenLigaDB pin a second feed with the same semantics from that provider; the
+ * program then settles only when both agree. Nothing we run is in that path.
+ * Feed authority is handed to aichain's `feed-lock` PDA in the same transaction that creates
+ * the market, so nobody can change the jobs, queue or write values later.
  */
 import * as sb from "@switchboard-xyz/on-demand";
 import { CrossbarClient, FeedHash, OracleJob } from "@switchboard-xyz/common";
@@ -22,6 +24,10 @@ export const SB_PROGRAM_ID = new PublicKey("Aio4gaXjXzJNVLtzwtNVmSqGKpANtXhybbkh
 export const SB_QUEUE = new PublicKey("EYiAmGSdsQTuCw413V5BzaruWuCCSDgTPtBGvLkXHbe7");
 export const CROSSBAR_URL =
   process.env.NEXT_PUBLIC_CROSSBAR_URL || "https://crossbar.switchboardlabs.xyz";
+export const OPENLIGADB_BASE = "https://api.openligadb.de";
+
+/** Matches `SOURCE_*` in programs/aichain/src/state.rs. */
+export const SOURCE_OPENLIGADB = 1;
 
 /**
  * `home_score - away_score` for one fixture. Scores are strings in the provider's JSON and
@@ -50,8 +56,36 @@ export function scoreDiffJobs(matchId: number | bigint | string): OracleJob[] {
   ];
 }
 
+/**
+ * Same `home - away` from OpenLigaDB's "Endergebnis" (regular time). The path only matches
+ * once `matchIsFinished` is true; OpenLigaDB is community-updated during the match, so
+ * without that gate an oracle could sign an in-play value.
+ */
+export function openLigaDiffJobs(openLigaMatchId: number | bigint | string): OracleJob[] {
+  const url = `${OPENLIGADB_BASE}/getmatchdata/${openLigaMatchId}`;
+  const points = (team: 1 | 2) =>
+    `$[?(@.matchIsFinished == true)].matchResults[?(@.resultTypeID == 2)].pointsTeam${team}`;
+  return [
+    OracleJob.fromObject({
+      tasks: [
+        { httpTask: { url } },
+        { jsonParseTask: { path: points(1) } },
+        {
+          subtractTask: {
+            job: { tasks: [{ httpTask: { url } }, { jsonParseTask: { path: points(2) } }] },
+          },
+        },
+      ],
+    }),
+  ];
+}
+
+export function feedHashOf(jobs: OracleJob[]): Buffer {
+  return Buffer.from(FeedHash.compute(SB_QUEUE.toBuffer(), jobs));
+}
+
 export function feedHashFor(matchId: number | bigint | string): Buffer {
-  return Buffer.from(FeedHash.compute(SB_QUEUE.toBuffer(), scoreDiffJobs(matchId)));
+  return feedHashOf(scoreDiffJobs(matchId));
 }
 
 /**
@@ -60,7 +94,7 @@ export function feedHashFor(matchId: number | bigint | string): Buffer {
  */
 export async function storeJobs(jobs: OracleJob[]): Promise<void> {
   const stored = await new LegacyCrossbarClient(CROSSBAR_URL).store(SB_QUEUE.toBase58(), jobs);
-  const expected = Buffer.from(FeedHash.compute(SB_QUEUE.toBuffer(), jobs)).toString("hex");
+  const expected = feedHashOf(jobs).toString("hex");
   if (stored.feedHash.replace(/^0x/, "") !== expected) {
     throw new Error(`Crossbar stored feed hash ${stored.feedHash}, expected ${expected}`);
   }
@@ -74,18 +108,18 @@ export async function loadSwitchboard(connection: Connection): Promise<SbProgram
 }
 
 /**
- * Instructions that create the feed and immediately transfer its authority to `feedLock`.
- * Caller must sign with `payer` and the returned `feedKeypair`.
+ * Instructions that create a feed for `jobs` and immediately transfer its authority to
+ * `feedLock`. Caller must sign with `payer` and the returned `feedKeypair`.
  */
 export async function buildCreateFeedIxs(
   sbProgram: SbProgram,
-  params: { matchId: number | bigint; payer: PublicKey; feedLock: PublicKey }
+  params: { jobs: OracleJob[]; name: string; payer: PublicKey; feedLock: PublicKey }
 ): Promise<{ feedKeypair: Keypair; feed: PublicKey; feedHash: Buffer; ixs: TransactionInstruction[] }> {
   const [pullFeed, feedKeypair] = sb.PullFeed.generate(sbProgram);
-  await storeJobs(scoreDiffJobs(params.matchId));
-  const feedHash = feedHashFor(params.matchId);
+  await storeJobs(params.jobs);
+  const feedHash = feedHashOf(params.jobs);
   const initIx = await pullFeed.initIx({
-    name: `fairodds-${params.matchId}`.slice(0, 32),
+    name: params.name.slice(0, 32),
     queue: SB_QUEUE,
     maxVariance: 1,
     minResponses: 1,
@@ -112,21 +146,20 @@ export async function buildCreateFeedIxs(
   return { feedKeypair, feed: pullFeed.pubkey, feedHash, ixs: [initIx, lockIx] };
 }
 
-/** Asks the oracle gateway to run the job and returns signed update instructions. */
+/** Asks the oracle gateway to run the feed's jobs and returns signed update instructions. */
 export async function buildFeedUpdateIxs(
   sbProgram: SbProgram,
-  params: { feed: PublicKey; matchId: number | bigint; payer: PublicKey }
+  params: { feed: PublicKey; jobs: OracleJob[]; payer: PublicKey }
 ): Promise<{
   ixs: TransactionInstruction[];
   luts: AddressLookupTableAccount[];
   errors: string[];
 }> {
   const pullFeed = new sb.PullFeed(sbProgram, params.feed);
-  const jobs = scoreDiffJobs(params.matchId);
-  await storeJobs(jobs);
+  await storeJobs(params.jobs);
   const [ixs, responses, , luts, failures] = await pullFeed.fetchUpdateIx({
     crossbarClient: new CrossbarClient(CROSSBAR_URL),
-    jobs,
+    jobs: params.jobs,
     numSignatures: 1,
     payer: params.payer,
   });
@@ -158,4 +191,26 @@ export function decodeFeedSubmissions(
     authority: new PublicKey(data.subarray(8 + 2048, 8 + 2080)),
     queue: new PublicKey(data.subarray(8 + 2080, 8 + 2112)),
   };
+}
+
+/**
+ * Layout of aichain's `SecondaryOracle` account (Anchor discriminator first):
+ * market, feed, feed_hash, source u8, source_ref u64, bump u8.
+ */
+export function decodeSecondaryOracle(
+  data: Buffer
+): { market: PublicKey; feed: PublicKey; feedHash: Buffer; source: number; sourceRef: bigint } | null {
+  if (data.length < 8 + 32 + 32 + 32 + 1 + 8 + 1) return null;
+  return {
+    market: new PublicKey(data.subarray(8, 40)),
+    feed: new PublicKey(data.subarray(40, 72)),
+    feedHash: Buffer.from(data.subarray(72, 104)),
+    source: data[104],
+    sourceRef: data.readBigUInt64LE(105),
+  };
+}
+
+export function secondaryJobs(source: number, sourceRef: bigint | number | string): OracleJob[] {
+  if (source === SOURCE_OPENLIGADB) return openLigaDiffJobs(sourceRef);
+  throw new Error(`unknown secondary source ${source}`);
 }

@@ -23,7 +23,14 @@ import {
 } from "@/lib/anchor";
 import { AIchAIN_PROGRAM_ID } from "@/lib/ids";
 import { eventUrl, scoreLabel, type FixtureView } from "@/lib/fixtures";
-import { CANCEL_REASONS, cancelExpired, resolveWithOracle } from "@/lib/cranks";
+import type { Anomaly } from "@/lib/catalog";
+import {
+  CANCEL_REASONS,
+  cancelExpired,
+  fetchSecondaryOracle,
+  resolveWithOracle,
+} from "@/lib/cranks";
+import { OPENLIGADB_BASE, SOURCE_OPENLIGADB } from "@/lib/switchboard";
 
 function fmt(ts: number) {
   return new Date(ts * 1000).toLocaleString();
@@ -65,14 +72,21 @@ export default function MarketPage() {
     refetchInterval: 4000,
   });
 
-  const { data: fixture } = useQuery({
+  const { data: catalogEntry } = useQuery({
     queryKey: ["fixture", params.id],
-    queryFn: async (): Promise<FixtureView | null> => {
+    queryFn: async (): Promise<{ fixture: FixtureView | null; anomaly: Anomaly | null }> => {
       const res = await fetch(`/api/fixtures/${params.id}`);
-      if (!res.ok) return null;
-      const json = await res.json();
-      return (json.fixture as FixtureView) || null;
+      const json = await res.json().catch(() => ({}));
+      return { fixture: (json.fixture as FixtureView) || null, anomaly: json.anomaly ?? null };
     },
+    refetchInterval: 60_000,
+  });
+  const fixture = catalogEntry?.fixture ?? null;
+  const anomaly = catalogEntry?.anomaly ?? null;
+
+  const { data: secondary } = useQuery({
+    queryKey: ["secondary", market.toBase58()],
+    queryFn: () => fetchSecondaryOracle(connection, market),
   });
 
   async function placeBet() {
@@ -234,10 +248,22 @@ export default function MarketPage() {
         )}
       </div>
 
+      {anomaly && pending && (
+        <div className="rounded-xl border border-warn/40 bg-warn/10 p-4 text-sm text-warn">
+          <p className="font-medium">Spór źródeł wyniku — keeper wstrzymał rozliczenie.</p>
+          <p className="mt-1 text-xs">{anomaly.reason}</p>
+          <p className="mt-1 text-xs">
+            Jeśli źródła się nie zgodzą do {fmt(deadline)}, każdy może anulować rynek i odebrać
+            pełny zwrot.
+          </p>
+        </div>
+      )}
+
       <div className="space-y-1 rounded-xl border border-white/10 bg-panel p-4 text-xs text-mute">
         <p className="text-sm text-white">
-          Wynik bierze się z publicznego TheSportsDB, nie z naszego serwera. Oracle Switchboard
-          czytają <code>intHomeScore − intAwayScore</code>, a program sprawdza tylko znak różnicy.
+          {secondary
+            ? "Wynik bierze się z dwóch niezależnych, publicznych źródeł: TheSportsDB i OpenLigaDB. Program rozlicza tylko wtedy, gdy oba podają tę samą różnicę bramek; przy rozjeździe nikt nie wygrywa, a po terminie jest zwrot."
+            : "Wynik bierze się z publicznego TheSportsDB, nie z naszego serwera. Oracle Switchboard czytają intHomeScore − intAwayScore, a program sprawdza znak różnicy."}{" "}
           Admin nie może zmienić wyniku ani ruszyć puli.
         </p>
         <p>
@@ -268,6 +294,38 @@ export default function MarketPage() {
           </a>
         </p>
         <p className="break-all">Hash joba: {feedHashHex}</p>
+        {secondary && (
+          <>
+            <p>
+              Drugie źródło:{" "}
+              <a
+                className="break-all text-accent underline"
+                href={
+                  secondary.source === SOURCE_OPENLIGADB
+                    ? `${OPENLIGADB_BASE}/getmatchdata/${secondary.sourceRef}`
+                    : "#"
+                }
+                target="_blank"
+                rel="noreferrer"
+              >
+                {secondary.source === SOURCE_OPENLIGADB
+                  ? `${OPENLIGADB_BASE}/getmatchdata/${secondary.sourceRef}`
+                  : `źródło ${secondary.source}`}
+              </a>
+            </p>
+            <p>
+              Drugi feed:{" "}
+              <a
+                className="break-all text-accent underline"
+                href={`https://explorer.solana.com/address/${secondary.feed.toBase58()}?cluster=devnet`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {secondary.feed.toBase58()}
+              </a>
+            </p>
+          </>
+        )}
         <p>
           Koniec meczu: <span className="text-white">{fmt(endTime)}</span> · Termin na wynik:{" "}
           <span className="text-white">{fmt(deadline)}</span> (potem każdy może anulować → pełny

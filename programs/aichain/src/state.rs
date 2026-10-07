@@ -13,6 +13,12 @@ pub const SEED_MINT_AUTH: &[u8] = b"mint-auth";
 /// Switchboard feed authority must be this PDA. No instruction signs with it,
 /// so a feed handed over to it can never be reconfigured.
 pub const SEED_FEED_LOCK: &[u8] = b"feed-lock";
+/// Optional second result feed of a market. Its address is derived from the market, so a
+/// resolver cannot hide it by leaving it out of the transaction.
+pub const SEED_ORACLE2: &[u8] = b"oracle2";
+
+/// `SecondaryOracle::source`: OpenLigaDB `getmatchdata/{source_ref}`.
+pub const SOURCE_OPENLIGADB: u8 = 1;
 
 /// 1 USDC (6 decimals). Keeps receipts from being spammed with dust.
 pub const MIN_BET: u64 = 1_000_000;
@@ -112,6 +118,24 @@ impl MarketState {
     pub fn obligations_settled(&self) -> bool {
         self.claimed_stake >= self.eligible_stake()
     }
+}
+
+/// Second Switchboard feed pinned to a market from an independent provider. When present,
+/// `resolve_market` settles only if both feeds report the same score difference.
+#[account]
+#[derive(InitSpace)]
+pub struct SecondaryOracle {
+    pub market: Pubkey,
+    pub feed: Pubkey,
+    pub feed_hash: [u8; 32],
+    pub source: u8,
+    /// Provider's own event id, so any client can rebuild the job and request an update.
+    pub source_ref: u64,
+    pub bump: u8,
+}
+
+impl SecondaryOracle {
+    pub const LEN: usize = 8 + Self::INIT_SPACE;
 }
 
 #[account]

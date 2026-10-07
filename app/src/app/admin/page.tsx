@@ -9,6 +9,7 @@ import { useAichainProgram } from "@/lib/hooks/useProgram";
 import { marketPda } from "@/lib/anchor";
 import { ADMIN_PUBKEY, AIchAIN_PROGRAM_ID, DEPLOY } from "@/lib/ids";
 import { CATEGORY_LABELS, eventUrl, type FixtureView } from "@/lib/fixtures";
+import { OPENLIGADB_BASE, SOURCE_OPENLIGADB } from "@/lib/switchboard";
 import {
   cancelExpired,
   createMarketTx,
@@ -49,6 +50,7 @@ export default function AdminPage() {
   const [minutes, setMinutes] = useState("3");
   const [duration, setDuration] = useState("2");
   const [resolveWindow, setResolveWindow] = useState("30");
+  const [openLigaRef, setOpenLigaRef] = useState<string | null>(null);
   const [log, setLog] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [lastSig, setLastSig] = useState<string | null>(null);
@@ -98,10 +100,14 @@ export default function AdminPage() {
     const toKickoff = Math.ceil((f.startTime * 1000 - Date.now()) / 60_000);
     setMinutes(String(Math.max(1, toKickoff)));
     setDuration(String(Math.max(1, Math.round((f.endTime - f.startTime) / 60))));
+    setOpenLigaRef(f.sources.openligadb ?? null);
     note(
       `Załadowano ${f.teamA} vs ${f.teamB} (${CATEGORY_LABELS[f.category]} · ${f.league}).\n` +
         `Kickoff ${new Date(f.startTime * 1000).toLocaleString()}\n` +
         `Źródło wyniku: ${eventUrl(f.matchId)}\n` +
+        (f.sources.openligadb
+          ? `Drugie źródło: ${OPENLIGADB_BASE}/getmatchdata/${f.sources.openligadb} (oba muszą się zgodzić)\n`
+          : "") +
         (toKickoff <= 0
           ? "Mecz już się zaczął — rynek musi mieć start w przyszłości, więc to tylko rynek demo."
           : isAdmin
@@ -128,17 +134,21 @@ export default function AdminPage() {
             `CLI: npx ts-node scripts/create-from-fixture.ts ${matchId}`
         );
       }
-      const { sig, feed } = await createMarketTx(program, connection, wallet, {
+      const { sig, feed, secondaryFeed } = await createMarketTx(program, connection, wallet, {
         matchId,
         teamA,
         teamB,
         start: times.start,
         end: times.end,
         resolveDeadline: times.deadline,
+        secondary: openLigaRef ? { source: SOURCE_OPENLIGADB, sourceRef: openLigaRef } : undefined,
       });
       note(
         `Rynek + feed Switchboard utworzone atomowo.\n` +
           `Feed: ${feed.toBase58()} (authority = feed-lock PDA, konfiguracja zamrożona)\n` +
+          (secondaryFeed
+            ? `Drugi feed (OpenLigaDB ${openLigaRef}): ${secondaryFeed.toBase58()}\n`
+            : "") +
           `Job: ${eventUrl(matchId)} → intHomeScore − intAwayScore\n` +
           `Zakłady do: ${new Date(times.start * 1000).toLocaleString()}\n` +
           `Koniec meczu: ${new Date(times.end * 1000).toLocaleString()}\n` +
@@ -219,9 +229,9 @@ export default function AdminPage() {
       <section className="space-y-4 rounded-xl border border-white/10 bg-panel p-5">
         <h2 className="font-display text-xl">0. Z terminarza (TheSportsDB)</h2>
         <div className="grid max-h-64 gap-2 overflow-y-auto">
-          {(fixturesData?.fixtures ?? []).map((f) => (
+          {(fixturesData?.fixtures ?? []).filter((f) => f.marketable).map((f) => (
             <button
-              key={f.id}
+              key={f.key}
               type="button"
               onClick={() => applyFixture(f)}
               className="rounded-lg border border-white/10 bg-ink/60 px-3 py-2 text-left text-sm transition hover:border-accent/40"
@@ -232,7 +242,10 @@ export default function AdminPage() {
               <div className="font-display text-base">
                 {f.teamA} vs {f.teamB}
               </div>
-              <span className="text-xs text-mute">#{f.matchId}</span>
+              <span className="text-xs text-mute">
+                #{f.matchId}
+                {f.sources.openligadb ? " · 2 źródła wyniku" : ""}
+              </span>
             </button>
           ))}
         </div>
@@ -255,7 +268,10 @@ export default function AdminPage() {
             <input className={inputClass} value={teamB} onChange={(e) => setTeamB(e.target.value)} />
           </Field>
           <Field label="Match ID" hint="idEvent z TheSportsDB — to po nim oracle czyta wynik.">
-            <input className={inputClass} value={matchId} onChange={(e) => setMatchId(e.target.value)} />
+            <input className={inputClass} value={matchId} onChange={(e) => {
+              setMatchId(e.target.value);
+              setOpenLigaRef(null);
+            }} />
           </Field>
           <Field
             label="Minuty do startu (koniec zakładów)"
@@ -335,7 +351,10 @@ export default function AdminPage() {
           </ol>
         </div>
         <Field label="Match ID">
-          <input className={inputClass} value={matchId} onChange={(e) => setMatchId(e.target.value)} />
+          <input className={inputClass} value={matchId} onChange={(e) => {
+              setMatchId(e.target.value);
+              setOpenLigaRef(null);
+            }} />
         </Field>
         <div className="flex flex-wrap gap-2">
           <button

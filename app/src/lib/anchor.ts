@@ -44,6 +44,13 @@ export function vaultPda(programId: PublicKey, market: PublicKey) {
   );
 }
 
+export function secondaryOraclePda(programId: PublicKey, market: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [V, Buffer.from("oracle2"), market.toBuffer()],
+    programId
+  );
+}
+
 export function receiptPda(programId: PublicKey, market: PublicKey, user: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [V, Buffer.from("receipt"), market.toBuffer(), user.toBuffer()],

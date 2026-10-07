@@ -1,13 +1,31 @@
 /**
- * Catalog of real fixtures from TheSportsDB. `id` is the provider's `idEvent`, which is also
- * the on-chain `match_id` and the id the Switchboard job looks up when a market settles.
+ * Catalog of real fixtures merged from several providers. For rows that come from
+ * TheSportsDB, `id` is its `idEvent`, which is also the on-chain `match_id` and the id the
+ * primary Switchboard job looks up when a market settles. Rows known only to another
+ * provider are listed but `marketable: false`: there is no public job that could settle them.
  */
 export type FixtureCategoryId = "esports_cs2" | "esports_lol" | "esports" | "football";
 
 export type FixtureStatus = "scheduled" | "live" | "finished";
 
+export type FixtureSourceId =
+  | "thesportsdb"
+  | "openligadb"
+  | "footballData"
+  | "apiFootball"
+  | "pandascore";
+
+/** Ids of providers that only carry this row; a market can never be created for them. */
+export const UNMARKETABLE_ID_OFFSET = 9_000_000_000_000;
+
 export type Fixture = {
+  /** `${source}:${sourceId}` of the provider the row was built from. */
+  key: string;
   id: number;
+  /** True only with a TheSportsDB `idEvent`, the source of every primary feed. */
+  marketable: boolean;
+  /** The same event's id in every provider it was matched to. */
+  sources: Partial<Record<FixtureSourceId, string>>;
   category: FixtureCategoryId;
   league: string;
   /** Home side; the oracle reports `teamA score - teamB score`. */
@@ -63,12 +81,36 @@ export function fixtureStatus(
   return "scheduled";
 }
 
+export const SOURCE_LABELS: Record<FixtureSourceId, string> = {
+  thesportsdb: "TheSportsDB",
+  openligadb: "OpenLigaDB",
+  footballData: "football-data.org",
+  apiFootball: "API-Football",
+  pandascore: "PandaScore",
+};
+
+export function sourceUrlOf(f: Pick<Fixture, "id" | "marketable" | "sources">): string {
+  if (f.marketable) return eventUrl(f.id);
+  const panda = f.sources.pandascore;
+  return panda ? `https://api.pandascore.co/matches/${panda}` : "";
+}
+
+/** Rows written before multi-source catalogs had no `key`/`sources`; treat them as TheSportsDB. */
+export function normalizeFixture(f: Partial<Fixture> & Omit<Fixture, "key" | "marketable" | "sources">): Fixture {
+  return {
+    ...f,
+    key: f.key ?? `thesportsdb:${f.id}`,
+    marketable: f.marketable ?? true,
+    sources: f.sources ?? { thesportsdb: String(f.id) },
+  };
+}
+
 export function toFixtureView(f: Fixture, nowSec = Math.floor(Date.now() / 1000)): FixtureView {
   return {
     ...f,
     matchId: String(f.id),
     status: fixtureStatus(f, nowSec),
-    sourceUrl: eventUrl(f.id),
+    sourceUrl: sourceUrlOf(f),
   };
 }
 

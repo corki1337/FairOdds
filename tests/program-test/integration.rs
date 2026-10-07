@@ -9,7 +9,7 @@ use aichain::errors::AichainError;
 use aichain::state::{
     MarketState, MarketStatus, CANCEL_DRAW, CANCEL_EXPIRED, CANCEL_NO_WINNERS, FAUCET_AMOUNT,
     FAUCET_COOLDOWN, SEED_FAUCET, SEED_FEED_LOCK, SEED_GLOBAL, SEED_MARKET, SEED_MINT_AUTH,
-    SEED_RECEIPT, SEED_TREASURY, SEED_VAULT, SEED_VERSION,
+    SEED_ORACLE2, SEED_RECEIPT, SEED_TREASURY, SEED_VAULT, SEED_VERSION, SOURCE_OPENLIGADB,
 };
 use aichain::switchboard::SWITCHBOARD_PROGRAM_ID;
 use anchor_lang::{AccountDeserialize, InstructionData, ToAccountMetas};
@@ -80,11 +80,17 @@ struct Feed {
     authority_is_lock: bool,
     permit_write: bool,
     second: Option<i128>,
+    /// A different job definition (e.g. the OpenLigaDB job instead of TheSportsDB).
+    other_job: bool,
 }
 
 impl Feed {
     fn result(value: i128, timestamp: i64) -> Self {
-        Self { value, timestamp, authority_is_lock: true, permit_write: false, second: None }
+        Self { value, timestamp, authority_is_lock: true, permit_write: false, second: None, other_job: false }
+    }
+
+    fn other_source(goals: i64, timestamp: i64) -> Self {
+        Self { other_job: true, ..Self::diff(goals, timestamp) }
     }
 
     /// `home_score - away_score`, the only thing the feed ever reports.
@@ -104,6 +110,9 @@ impl Feed {
         let authority = if self.authority_is_lock { *feed_lock } else { Pubkey::new_unique() };
         d[OFF_AUTHORITY..OFF_AUTHORITY + 32].copy_from_slice(authority.as_ref());
         d[OFF_PERMIT_WRITE] = self.permit_write as u8;
+        if self.other_job {
+            d[OFF_FEED_HASH] ^= 0x5a;
+        }
         d[8 + 48..8 + 64].copy_from_slice(&self.value.to_le_bytes());
         d[OFF_TIMESTAMPS..OFF_TIMESTAMPS + 8].copy_from_slice(&self.timestamp.to_le_bytes());
         if let Some(v) = self.second {
@@ -149,6 +158,10 @@ fn mint_authority_pda() -> Pubkey {
 
 fn vault_pda(market: &Pubkey) -> Pubkey {
     pda(&[SEED_VERSION, SEED_VAULT, market.as_ref()], &aichain::ID)
+}
+
+fn secondary_pda(market: &Pubkey) -> Pubkey {
+    pda(&[SEED_VERSION, SEED_ORACLE2, market.as_ref()], &aichain::ID)
 }
 
 fn receipt_pda(market: &Pubkey, user: &Pubkey) -> Pubkey {
@@ -444,7 +457,36 @@ impl Env {
         self.send(vec![ix], &[]).await
     }
 
+    async fn attach(&mut self, market: Pubkey, feed: Pubkey, source_ref: u64) -> TxResult {
+        let ix = Instruction {
+            program_id: aichain::ID,
+            accounts: aichain::accounts::AttachSecondaryFeed {
+                authority: self.admin(),
+                global: self.global,
+                market,
+                secondary: secondary_pda(&market),
+                secondary_feed: feed,
+                feed_lock: self.feed_lock,
+                system_program: system_program::ID,
+            }
+            .to_account_metas(None),
+            data: aichain::instruction::AttachSecondaryFeed { source: SOURCE_OPENLIGADB, source_ref }
+                .data(),
+        };
+        self.send(vec![ix], &[]).await
+    }
+
     async fn resolve(&mut self, market: Pubkey, feed: Pubkey, crank: Option<&Keypair>) -> TxResult {
+        self.resolve_with(market, feed, None, crank).await
+    }
+
+    async fn resolve_with(
+        &mut self,
+        market: Pubkey,
+        feed: Pubkey,
+        secondary_feed: Option<Pubkey>,
+        crank: Option<&Keypair>,
+    ) -> TxResult {
         let crank_key = crank.map(|k| k.pubkey()).unwrap_or(self.admin());
         let ix = Instruction {
             program_id: aichain::ID,
@@ -454,6 +496,8 @@ impl Env {
                 market,
                 oracle_feed: feed,
                 feed_lock: self.feed_lock,
+                secondary: secondary_pda(&market),
+                secondary_feed,
                 vault: vault_pda(&market),
                 treasury: self.treasury,
                 park: self.park,
@@ -875,6 +919,109 @@ async fn anyone_can_cancel_after_deadline_and_everyone_is_refunded() {
     assert_eq!(env.balance(&bob.ata).await - b0, 70 * USDC);
     assert_eq!(env.market(&market).await.claimed_stake, 120 * USDC);
     assert_err(env.harvest(market, &alice.kp).await, AichainError::NothingToHarvest);
+}
+
+#[tokio::test]
+async fn two_agreeing_sources_resolve_and_secondary_is_mandatory_once_attached() {
+    let mut env = Env::new().await;
+    let ts = env.far_future().await;
+    let feed = env.new_feed(Feed::diff(2, ts));
+    let second = env.new_feed(Feed::other_source(2, ts));
+    let impostor = env.new_feed(Feed::other_source(2, ts));
+    let alice = env.user(100 * USDC).await;
+    let bob = env.user(100 * USDC).await;
+    let t = env.times(HOUR, HOUR, 6 * HOUR).await;
+    let (market, r) = env.create_market(feed, t).await;
+    r.unwrap();
+    env.attach(market, second, 83191).await.unwrap();
+    assert!(env.attach(market, impostor, 1).await.is_err(), "secondary is pinned once");
+
+    env.bet(&alice, market, 30 * USDC, 0).await.unwrap();
+    env.bet(&bob, market, 10 * USDC, 1).await.unwrap();
+    env.warp(t.end).await;
+
+    assert_err(env.resolve(market, feed, None).await, AichainError::SecondaryFeedMismatch);
+    assert_err(
+        env.resolve_with(market, feed, Some(impostor), None).await,
+        AichainError::SecondaryFeedMismatch,
+    );
+    env.resolve_with(market, feed, Some(second), None).await.unwrap();
+    let m = env.market(&market).await;
+    assert!(m.status == MarketStatus::Resolved);
+    assert_eq!(m.winning_team, Some(0));
+}
+
+#[tokio::test]
+async fn sources_with_different_scores_never_settle_and_bettors_get_refunds() {
+    let mut env = Env::new().await;
+    let ts = env.far_future().await;
+    // Same winner, different margin: still a disagreement about what happened.
+    let feed = env.new_feed(Feed::diff(1, ts));
+    let second = env.new_feed(Feed::other_source(2, ts));
+    let alice = env.user(100 * USDC).await;
+    let bob = env.user(100 * USDC).await;
+    let t = env.times(HOUR, HOUR, 6 * HOUR).await;
+    let (market, r) = env.create_market(feed, t).await;
+    r.unwrap();
+    env.attach(market, second, 7).await.unwrap();
+    env.bet(&alice, market, 25 * USDC, 0).await.unwrap();
+    env.bet(&bob, market, 15 * USDC, 1).await.unwrap();
+    env.warp(t.start).await;
+    env.lock(market).await.unwrap();
+
+    env.warp(t.end).await;
+    assert_err(env.resolve_with(market, feed, Some(second), None).await, AichainError::SourcesDisagree);
+    // A secondary that has not reported since the final whistle blocks resolution too.
+    env.put_feed(second, Feed::other_source(1, t.end - 1));
+    assert_err(env.resolve_with(market, feed, Some(second), None).await, AichainError::FeedStale);
+
+    env.warp(t.deadline).await;
+    env.cancel_expired(market, &bob.kp).await.unwrap();
+    let m = env.market(&market).await;
+    assert!(m.status == MarketStatus::Cancelled);
+    assert_eq!(m.cancel_reason, CANCEL_EXPIRED);
+    let (a0, b0) = (env.balance(&alice.ata).await, env.balance(&bob.ata).await);
+    env.refund(&alice, market).await.unwrap();
+    env.refund(&bob, market).await.unwrap();
+    assert_eq!(env.balance(&alice.ata).await - a0, 25 * USDC);
+    assert_eq!(env.balance(&bob.ata).await - b0, 15 * USDC);
+}
+
+#[tokio::test]
+async fn secondary_feed_cannot_change_the_rules_under_existing_bets() {
+    let mut env = Env::new().await;
+    let ts = env.far_future().await;
+    let alice = env.user(100 * USDC).await;
+    let t = env.times(HOUR, HOUR, 6 * HOUR).await;
+
+    let feed = env.new_feed(Feed::diff(1, ts));
+    let (with_bet, r) = env.create_market(feed, t).await;
+    r.unwrap();
+    env.bet(&alice, with_bet, 5 * USDC, 0).await.unwrap();
+    let late = env.new_feed(Feed::other_source(-1, ts));
+    assert_err(env.attach(with_bet, late, 1).await, AichainError::MarketHasBets);
+
+    let feed2 = env.new_feed(Feed::diff(1, ts));
+    let (started, r) = env.create_market(feed2, t).await;
+    r.unwrap();
+    let fresh_feed = env.new_feed(Feed::diff(1, ts));
+    let (fresh, r) = env.create_market(fresh_feed, t).await;
+    r.unwrap();
+
+    assert_err(env.attach(fresh, fresh_feed, 1).await, AichainError::SecondaryFeedDuplicate);
+    let same_job = env.new_feed(Feed::diff(1, ts));
+    assert_err(env.attach(fresh, same_job, 1).await, AichainError::SecondaryFeedDuplicate);
+    let unlocked = env.new_feed(Feed { authority_is_lock: false, ..Feed::other_source(1, ts) });
+    assert_err(env.attach(fresh, unlocked, 1).await, AichainError::FeedAuthorityNotLocked);
+
+    env.warp(t.start).await;
+    let after_start = env.new_feed(Feed::other_source(1, ts));
+    assert_err(env.attach(started, after_start, 1).await, AichainError::MarketHasBets);
+
+    // Markets without a secondary keep settling from their single feed.
+    env.warp(t.end).await;
+    env.resolve(with_bet, feed, None).await.unwrap();
+    assert!(env.market(&with_bet).await.status == MarketStatus::Resolved);
 }
 
 #[tokio::test]

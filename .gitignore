@@ -17,6 +17,8 @@ demo-state.json
 .house-bettors.json
 fixture-markets.json
 smoke-result.json
+data/
+app/src/data/*.tmp
 fixture-markets.json
 wallet*.json
 .docker-build-image
