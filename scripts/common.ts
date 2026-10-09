@@ -122,6 +122,20 @@ export type Ctx = {
 };
 
 export function context(): Ctx {
+  if (!process.env.ANCHOR_PROVIDER_URL) {
+    process.env.ANCHOR_PROVIDER_URL = "https://api.devnet.solana.com";
+  }
+  if (!process.env.ANCHOR_WALLET) {
+    const defaultWallet = path.join(
+      process.env.USERPROFILE || process.env.HOME || "",
+      ".config",
+      "solana",
+      "id.json"
+    );
+    if (fs.existsSync(defaultWallet)) {
+      process.env.ANCHOR_WALLET = defaultWallet;
+    }
+  }
   // Same RPC policy as the app: retries on 429/5xx and rotates through fallbacks.
   const env = anchor.AnchorProvider.env();
   const provider = new anchor.AnchorProvider(makeConnection(), env.wallet, {
