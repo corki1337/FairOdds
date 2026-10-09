@@ -231,7 +231,13 @@ async function main() {
     `markets=${MARKETS}`,
     `keys: football-data=${footballData.enabled()} api-football=${apiFootball.enabled()} pandascore=${pandascore.enabled()}`
   );
-  let lastCatalog = 0;
+  let lastCatalog = Date.now();
+  // Ensure markets on startup immediately from existing fixtures catalog
+  try {
+    await ensureMarkets(ctx, readCatalog().fixtures);
+  } catch (e) {
+    log("startup ensureMarkets failed:", String((e as Error).message ?? e).slice(0, 300));
+  }
   for (;;) {
     try {
       if (Date.now() - lastCatalog >= CATALOG_MS) {
