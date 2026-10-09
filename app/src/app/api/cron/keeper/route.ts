@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AnchorProvider, Idl, Program, Wallet } from "@coral-xyz/anchor";
+import { AnchorProvider, Idl, Program } from "@coral-xyz/anchor";
 import { makeConnection } from "@/lib/rpc";
 import aichainIdl from "@/lib/idl/aichain.json";
 import { statusKey } from "@/lib/anchor";
@@ -17,47 +17,78 @@ export async function POST(req: NextRequest) {
   return handleCron(req);
 }
 
+function cleanSecret(val?: string | null): string {
+  if (!val) return "";
+  let s = val.trim();
+  if (
+    (s.startsWith('"') && s.endsWith('"')) ||
+    (s.startsWith("'") && s.endsWith("'"))
+  ) {
+    s = s.slice(1, -1).trim();
+  }
+  return s;
+}
+
 async function handleCron(req: NextRequest) {
-  // 1. Authorization check: Vercel Cron header or secret query parameter
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const authHeader = req.headers.get("authorization");
-    const querySecret = req.nextUrl.searchParams.get("secret");
-    const isAuthorized =
-      authHeader === `Bearer ${secret}` || querySecret === secret;
-    if (!isAuthorized) {
-      return NextResponse.json(
-        { ok: false, error: "Unauthorized: Invalid or missing CRON_SECRET" },
-        { status: 401 }
-      );
-    }
-  }
-
-  // 2. Load server keypair
-  const keypair = loadServerKeypair();
-  if (!keypair) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          "KEEPER_PRIVATE_KEY is not configured in environment variables. Provide a base58 string or byte array.",
-      },
-      { status: 500 }
-    );
-  }
-
-  const connection = makeConnection();
-  const serverWalletState = createServerWallet(keypair);
-  const anchorWallet = new Wallet(keypair);
-  const provider = new AnchorProvider(connection, anchorWallet, {
-    commitment: "confirmed",
-  });
-  const program = new Program(aichainIdl as Idl, provider);
-
-  const now = Math.floor(Date.now() / 1000);
-  const actions: { matchId: string; action: string; signature?: string; error?: string }[] = [];
+  const actions: {
+    matchId: string;
+    action: string;
+    signature?: string;
+    error?: string;
+  }[] = [];
 
   try {
+    // 1. Authorization check: Vercel Cron header or secret query parameter
+    const configuredSecret = cleanSecret(process.env.CRON_SECRET);
+    if (configuredSecret) {
+      const authHeader = req.headers.get("authorization");
+      const bearerToken = authHeader?.startsWith("Bearer ")
+        ? authHeader.slice(7).trim()
+        : null;
+      const querySecret = cleanSecret(req.nextUrl.searchParams.get("secret"));
+      const isAuthorized =
+        bearerToken === configuredSecret || querySecret === configuredSecret;
+      if (!isAuthorized) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Unauthorized: Invalid or missing CRON_SECRET. Pass ?secret=<YOUR_SECRET> or Authorization: Bearer <YOUR_SECRET>",
+          },
+          { status: 401 }
+        );
+      }
+    }
+
+    // 2. Load server keypair
+    const keypair = loadServerKeypair();
+    if (!keypair) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "KEEPER_PRIVATE_KEY is not configured in environment variables. Provide a base58 string or byte array in Vercel settings.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const connection = makeConnection();
+    const serverWalletState = createServerWallet(keypair);
+    // AnchorProvider requires an object implementing Anchor's Wallet interface
+    const anchorWallet = {
+      publicKey: keypair.publicKey,
+      payer: keypair,
+      signTransaction: serverWalletState.signTransaction,
+      signAllTransactions: serverWalletState.signAllTransactions,
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const provider = new AnchorProvider(connection, anchorWallet as any, {
+      commitment: "confirmed",
+    });
+    const program = new Program(aichainIdl as Idl, provider);
+
+    const now = Math.floor(Date.now() / 1000);
     // 3. Fetch all on-chain markets
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const all = await (program.account as any).marketState.all([

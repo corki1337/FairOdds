@@ -19,7 +19,13 @@ export function loadServerKeypair(): Keypair | null {
   if (!raw) return null;
 
   try {
-    const trimmed = raw.trim();
+    let trimmed = raw.trim();
+    if (
+      (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'"))
+    ) {
+      trimmed = trimmed.slice(1, -1).trim();
+    }
     if (trimmed.startsWith("[")) {
       return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(trimmed)));
     }
@@ -34,9 +40,10 @@ export function loadServerKeypair(): Keypair | null {
  * Wraps a Keypair in a WalletContextState-compatible interface
  * suitable for backend / serverless transactions (cranks, keeper).
  */
-export function createServerWallet(keypair: Keypair): WalletContextState {
+export function createServerWallet(keypair: Keypair): WalletContextState & { payer: Keypair } {
   return {
     publicKey: keypair.publicKey,
+    payer: keypair,
     signTransaction: async <T extends Transaction | VersionedTransaction>(tx: T): Promise<T> => {
       if ("version" in tx) {
         tx.sign([keypair]);
@@ -79,5 +86,5 @@ export function createServerWallet(keypair: Keypair): WalletContextState {
     },
     wallet: null,
     wallets: [],
-  } as unknown as WalletContextState;
+  } as unknown as WalletContextState & { payer: Keypair };
 }
