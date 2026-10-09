@@ -11,4 +11,4 @@
 7. **Demo** — dwa portfele, explorer, Sevilla 1:3 Barcelona
 8. **Gdzie znika pośrednik** — claim + feed-lock
 9. **Ograniczenia** — upgrade authority, jedno źródło wyniku, devnet
-10. **Dalej** — Kamino, 1X2, insurance/escrow, Superteam / grant
+10. **Dalej** — Kamino, 1X2, insurance/escrow, akceleracja Colosseum / grant Solana

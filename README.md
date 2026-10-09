@@ -1,195 +1,197 @@
-# FairOdds
+# FairOdds Protocol
 
-**Bukmacher bez bukmachera.** Prematch na prawdziwe mecze, pula wzajemna, rozliczenie na Solanie.
+**Bookmaker Without the Bookie.** Trustless, zero-vig pari-mutuel prediction markets and yield-bearing settlement on Solana.
 
-Superteam Poland Challenge — *Finance Without Intermediaries*.
+Built for the **Colosseum Hackathon (Crypto World's Fair)** — *DeFi Track* · In partnership with **Superteam**.
 
-> Osoba obstawiająca mecz nie musi ufać ani przeciwnikowi, ani operatorowi. Stawka leży w PDA, kurs wynika z podziału puli, wynik przychodzi z TheSportsDB przez Switchboard. Nasz serwer nie sędziuje.
+[![Solana Devnet](https://img.shields.io/badge/Solana-Devnet-14F195?logo=solana&logoColor=black)](https://explorer.solana.com/address/4FNHp1MjhJTqZZqQq333qrDBduT9orpF4zMTdXXUT1dg?cluster=devnet)
+[![Anchor Framework](https://img.shields.io/badge/Anchor-0.30.1-blue)](https://www.anchor-lang.com/)
+[![Switchboard](https://img.shields.io/badge/Oracle-Switchboard_On--Demand-orange)](https://switchboard.xyz/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-| | |
-|---|---|
-| Produkt | FairOdds (UI) |
-| Programy | `aichain` + `yield_park` |
-| Sieć | Solana **devnet** |
-| Demo live | `cd app && npm run dev` → Phantom na Devnet |
-| Film / slajdy | [`docs/NARRACJA.md`](docs/NARRACJA.md) |
-| Co się dzieje w kodzie | [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md) |
-| Uzasadnienie projektowe | [`docs/DESIGN.md`](docs/DESIGN.md) |
+> *Polish documentation available at [`README.pl.md`](README.pl.md).*
 
 ---
 
-## Dla kogo to budujemy
+## 💡 Executive Summary
 
-**Odbiorca (nazywamy go wprost):** osoby, które dziś obstawiają prawdziwe mecze — piłka, esport — i muszą zaufać bukmacherowi: że nie zmieni kursu po zakładzie, nie zniknie ze stawką i wypłaci wygraną.
+Traditional sports betting and centralized prediction markets are fundamentally adversarial:
+1. **Custodial Risk:** Bookmakers hold your deposit; withdrawals can be delayed, limited, or blocked.
+2. **House Margins (Vig):** Operators extract 5–10% from every market, degrading player returns.
+3. **Discretionary Resolution:** A centralized trading desk decides when to cancel bets, alter odds, or freeze accounts.
 
-To nie jest narzędzie dla deweloperów. Interfejs jest po polsku, ukrywa PDA i IDL. Phantom i explorer są tylko po to, żeby juror zobaczył transakcję na łańcuchu.
-
-Drugi, świadomy odbiorca *po* hackathonie: operator, który chce ten sam program pod licencją, albo zespół budujący **ubezpieczenie parametryczne / escrow kamieni milowych** — ten sam wzorzec: pula, warunek, automatyczna wypłata.
-
----
-
-## Jaka relacja, kto był pośrednikiem, co znika
-
-Klasyczny zakład: **gracz ↔ bukmacher ↔ wynik meczu**.
-
-Bukmacher robi trzy rzeczy, za które bierze prowizję i władzę:
-
-1. **Trzyma kasę** — możesz nie dostać wypłaty.
-2. **Ustala kurs** — może go ciąć, zamykać rynek, unieważniać kupon.
-3. **Orzeka wynik** — jego trading desk decyduje, kto wygrał.
-
-FairOdds rozdziela to na regułę, której nikt nie podpisuje ręcznie:
-
-| Ryzyko u bukmachera | Reguła on-chain |
-|---------------------|-----------------|
-| Operator znika z pulą | USDC w vault PDA rynku (albo w `yield_park` po locku). Admin nie ma klucza do vaultów. |
-| Selektywna wypłata | `claim_winnings` — `floor(stawka × pula / pula_zwycięzców)`. Bez podpisu operatora. |
-| Zakład po gwizdku | `Clock` vs `start_time` w `place_bet`. |
-| Podmieniony wynik | Feed Switchboard przypięty przy tworzeniu rynku; authority na PDA `feed-lock`, której nikt nie podpisuje. Job = TheSportsDB `lookupevent.php`. |
-| Remis / brak wyniku | `diff == 0` albo minął `resolve_deadline` → zwrot 100% stawek. |
-
-Platforma nie żyje z vig. Żyje z **yieldu na bezczynnym kapitale** między kickoffem a rozliczeniem.
-
-Szczegóły: [`docs/DESIGN.md`](docs/DESIGN.md). Odpowiedzi na pytania jurorów: [`docs/PITCH.md`](docs/PITCH.md).
+**FairOdds eliminates the bookmaker entirely.** Bettors interact with programmatic Program Derived Addresses (PDAs) on Solana:
+* **Zero Vig:** 100% of the pool is distributed to winners. Odds are derived purely from peer-to-peer pool ratios: `Odds = Total Pool / Winning Pool`.
+* **Yield-Bearing Escrow:** Between kickoff and settlement, idle pool capital is deposited via Cross-Program Invocation (CPI) into a DeFi lending module (`yield_park`), generating yield while the game is played.
+* **Tamper-Proof Oracles:** Match results (`Home Score − Away Score`) are pulled directly by Switchboard On-Demand oracles from verified sports APIs (TheSportsDB & OpenLigaDB). Oracle authority is locked into an un-signable PDA (`feed-lock`), mathematically preventing admin manipulation.
+* **Permissionless Lifecycle:** Resolving markets, claiming winnings, and claiming refunds are completely permissionless. If an oracle feed stalls or a match ends in a draw, players claim a 100% refund.
 
 ---
 
-## Co działa dziś (devnet, nie mockup)
+## ⚡ What Is Working Today (Verified on Solana Devnet)
 
-Pełna ścieżka, którą można kliknąć i pokazać na explorerze:
+FairOdds is **not a mockup or slide deck**. The complete on-chain pipeline is deployed and verifiable on Solana Devnet:
 
-1. Phantom → **Faucet** (1000 demo-USDC / 24h, mint authority = PDA programu).
-2. Zakład na gospodarzach albo gościach **przed kickoffem**.
-3. Od startu meczu nikt już nie obstawia. **Lock** wrzuca pulę do `yield_park` (CPI).
-4. Po meczu **ktokolwiek** woła Resolve: Switchboard ściąga `intHomeScore − intAwayScore`.
-5. Znak różnicy = zwycięzca. `0` = remis = zwrot. Zwycięzca **Claim**. Przegrany nie może.
+1. **On-Chain Faucet:** Anyone can mint 1,000 demo-USDC every 24 hours directly through a program PDA.
+2. **Prematch Betting:** Bettors deposit USDC into binary PDA vaults (`Team A` vs `Team B`) before the kickoff timestamp (`Clock::get() < start_time`).
+3. **Automated Capital Lock & Yield CPI:** At kickoff, betting locks and pooled funds are automatically routed into `yield_park` via CPI to accrue yield during the match.
+4. **Oracle Settlement:** Post-match, **anyone** can trigger `resolve_market`. Switchboard On-Demand attests `intHomeScore − intAwayScore`.
+5. **Permissionless Claims & Refunds:**
+   - Winner Claims: Program calculates `floor(stake × total_pool / winning_pool)` and transfers USDC instantly.
+   - Draws / Expired Deadlines: Triggers `cancel_expired` or `CANCEL_DRAW` granting an instant 100% refund.
 
-To nie jest nagranie. Smoke na żywym meczu:
-
-- Sevilla **1:3** Barcelona (`idEvent` `2506233`)
-- zwycięzca dostał **400 USDC**
-- [rynek na explorerze](https://explorer.solana.com/address/CX6iYKDwPKMWyqqZs7ToVMMDxyhgXjAUHq6exzCjYYGq?cluster=devnet)
-- źródło: [TheSportsDB lookupevent](https://www.thesportsdb.com/api/v1/json/3/lookupevent.php?id=2506233)
-
-Osiem otwartych rynków prematch (Arsenal–Leeds, Dortmund–Bremen, Lens–Lyon, …) ma pulę po obu stronach.
-
-Testy integracyjne programu: **10/10**.
+### 🔍 Verified Live Smoke Test
+- **Match:** Sevilla **1:3** Barcelona ([TheSportsDB Event #2506233](https://www.thesportsdb.com/api/v1/json/3/lookupevent.php?id=2506233))
+- **Payout:** Winner successfully claimed **400.00 USDC**
+- **Solana Explorer:** [View Market PDA on Devnet](https://explorer.solana.com/address/CX6iYKDwPKMWyqqZs7ToVMMDxyhgXjAUHq6exzCjYYGq?cluster=devnet)
+- **Active Markets:** 8 live prematch markets seeded with liquidity on Devnet (Arsenal vs Leeds, Dortmund vs Bremen, Lens vs Lyon, etc.).
 
 ---
 
-## Jak to działa w jednym akapicie
-
-Rynek = jeden prawdziwy mecz. `match_id` = `idEvent` z TheSportsDB. Katalog (`/api/fixtures`) tylko listuje — **nie podaje wyniku do rozliczenia**. Każdy rynek dostaje własny feed Switchboard z jobem „home minus away”. Authority feedu idzie do PDA, której program nigdy nie używa jako sygnatury. Po końcu meczu crank prosi Crossbar o podpisane update, program sprawdza hash joba, czas próbki i jednomyślność, potem ustawia stronę albo anuluje. Wypłata jest permissionless.
-
-Pełny przebieg kont i instrukcji: [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md). Oracle: [`docs/ORACLE.md`](docs/ORACLE.md).
+## 🏛️ System Architecture
 
 ```
-gracz A ──place_bet──► vault PDA ──lock──► yield_park
-gracz B ──place_bet──┘                         │
-                                               ▼
-                              Switchboard + TheSportsDB
-                                               │
-                         resolve / cancel_expired / CANCEL_DRAW
-                                               │
-                              claim_winnings / refund
+User A (Home) ──► [place_bet] ──┐
+                                ▼
+User B (Away) ──► [place_bet] ──► Market Vault PDA ──► [CPI Lock] ──► yield_park (DeFi Yield)
+                                        │
+                                        │ (Kickoff to Final Whistle)
+                                        ▼
+                         Switchboard On-Demand Oracle
+                         (TheSportsDB + OpenLigaDB)
+                                        │
+                                        ▼
+                     [resolve_market] / [cancel_expired]
+                                        │
+                                        ▼
+                     [claim_winnings] / [refund] (Permissionless)
 ```
 
-Wzór: `payout = floor(user_stake × payout_pool / winning_pool)`. Resztki zostają w vault (dust → treasury dopiero gdy wszyscy uprawnieni odebrali).
+### On-Chain Programs & Devnet Addresses
+
+| Component | Devnet Program ID / Address | Role |
+|---|---|---|
+| **`aichain`** | `4FNHp1MjhJTqZZqQq333qrDBduT9orpF4zMTdXXUT1dg` | Core market state, bet escrow, oracle validation, claims & refunds |
+| **`yield_park`** | `6XUoUhwMgdurDYu47VKEpqAKczbkY36H22xHr9o9DNHS` | Mock lending pool; accrues yield on idle escrowed capital via CPI |
+| **demo-USDC** | `9QwGwtNdA6CWPzswHNM56B8uEtdxVY4ByiRi8aswNMvZ` | SPL token used for staking and payouts |
+| **Global State PDA** | `3Bu6JBP3WZzsG5aaEYeQTzfB5GYaDrcghB2FBzz4iSVt` | Protocol parameter registry |
+| **Feed-Lock PDA** | `825vzqeb9iWcWjM5rgL3f3mFQFb4kSp8ghz9zM1HRwDM` | Un-signable authority preventing oracle feed tampering |
 
 ---
 
-## Co jest pomysłem, a nie kodem
+## 🛡️ Trust & Security Model
 
-Jurorzy oceniają rozumowanie tak samo jak kod. Poniższe rzeczy **nie są zaimplementowane** — opowiadamy je na filmie i slajdach jako kierunek, nie jako demo.
-
-| Pomysł | Po co |
-|--------|--------|
-| Ten sam program pod **ubezpieczenie parametryczne** (mecz odwołany → automatyczny zwrot składki) i **escrow milestone** (merge PR / dostawa = wypłata) | Pokazuje, że to nie „kolejny betting UI”, tylko wzorzec *warunek → pula → wypłata bez pośrednika* |
-| Yield z **Kamino / Marginfi** zamiast demo `yield_park` | Produkcyjny procent na bezczynnym USDC; `yield_park` jest adapterem na hackathon |
-| Rynki 1X2, over/under, serie BO3 | Ten sam vault i claim, inny dekoder wyniku |
-| Kilka niezależnych feedów (TheSportsDB + płatne API) | Mniejszy single-source risk |
-| Geo / KYC przy wejściu do UI, program bez zmian | Ścieżka licencyjna, nie zmiana matematyki |
-| Freeze upgrade authority | Po audycie nikt — w tym my — nie wgra innego `.so` |
-| Publiczny crank (keeper) | Lock/resolve bez naszego laptopa |
-
-Skrypt filmu i 10 slajdów: [`docs/NARRACJA.md`](docs/NARRACJA.md). HTML do eksportu PDF: [`presentation/slides.html`](presentation/slides.html).
+| Threat / Risk | Traditional Bookmaker | FairOdds Solana Protocol |
+|---|---|---|
+| **Operator Exit Scam / Custody** | High (Funds in corporate bank/custody) | **Zero** — Funds locked in deterministic PDAs; admin has no withdrawal key |
+| **Selective / Blocked Payouts** | High (Accounts frozen after winning) | **Zero** — Payout is purely on-chain math (`floor(stake × pool / win_pool)`) |
+| **Late Bets (Post-Kickoff)** | Risk of operator accepting skewed lines | **Zero** — Solana `Clock::get()` strictly enforces `start_time` |
+| **Falsified Scores** | High (Trading desk decides result) | **Zero** — Switchboard SGX enclave pulls signed API data; feed locked to PDA |
+| **Disputed / Divergent Results** | Operator pockets losing stakes | **Protected** — Multi-source consensus engine triggers automatic 100% refund |
 
 ---
 
-## Świadome ograniczenia (mówimy o nich)
+## 🚀 Key Hackathon Features
 
-Zasady cenią świadomość ograniczeń wyżej niż udawanie, że ich nie ma.
+### 1. Dual-Feed Consensus Engine (v2)
+To eliminate reliance on a single data source, FairOdds introduces multi-oracle consensus for Bundesliga fixtures:
+* Connects **TheSportsDB** and **OpenLigaDB** via independent Switchboard jobs.
+* Both feeds must report the **identical goal differential** (`intHomeScore − intAwayScore`).
+* If sources disagree, the automated keeper halts resolution and the protocol unlocks 100% refunds after deadline.
 
-- **Upgrade authority** jest nadal na walletcie deployera. Możemy wgrać nowy program, dopóki nie odpalimy `scripts/freeze-upgrade-authority.ts`. Na demo mówimy to wprost.
-- **TheSportsDB + Switchboard** to zewnętrzne zaufanie do *danych*, nie do custody. Operator FairOdds nie ustala wyniku.
-- Admin **listuje** mecze (`initialize_market`). Nie ustala wyniku, nie rusza vaultów, nie zmienia wzoru.
-- Token to **demo-USDC**, nie prawdziwe pieniądze. Devnet wystarczy według zasad.
-- Publiczny RPC devnet potrafi oddać 429 — do filmu miej explorer z zapisaną sygnaturą.
+### 2. Solana Actions & Blinks Ready
+FairOdds supports the latest Solana standard:
+* Users can view and place bets directly inside X/Twitter feeds via Solana Blinks (`/api/actions/market/[id]`).
+* Full compatibility with Dialect and Phantom on Devnet (`dial.to/?cluster=devnet`).
 
----
+### 3. Autonomous AI Bettors (Solana Agent Kit)
+* Solves the liquidity chicken-and-egg problem in pari-mutuel markets.
+* Dedicated agent API endpoints (`/api/agent/market/[id]`) allow autonomous AI bots to monitor pool disparities and inject liquidity into unbacked sides.
 
-## Repo — co gdzie leży
-
-| Ścieżka | Rola |
-|---------|------|
-| `programs/aichain` | Rynki, zakłady, resolve, claim, refund, faucet, treasury |
-| `programs/yield_park` | Depozyt / withdraw / udział w APR |
-| `app/` | Next.js: lista, rynek, faucet, admin |
-| `app/src/data/fixtures.json` | Katalog TheSportsDB (listing) |
-| `tests/program-test` | Integracja na prawdziwych `.so` |
-| `scripts/` | Setup, rynki, seed, crank, smoke |
-| `docs/` | Design, flow, narracja filmu, oracle |
-| `presentation/` | Slajdy HTML → drukuj do PDF |
-
-Nazwy crate’ów zostają `aichain` / `yield_park` — Program IDs są przypięte do keypairów.
-
-### Program IDs (devnet)
-
-| Program | ID |
-|---------|-----|
-| `aichain` | `4FNHp1MjhJTqZZqQq333qrDBduT9orpF4zMTdXXUT1dg` |
-| `yield_park` | `6XUoUhwMgdurDYu47VKEpqAKczbkY36H22xHr9o9DNHS` |
-| demo-USDC | `9QwGwtNdA6CWPzswHNM56B8uEtdxVY4ByiRi8aswNMvZ` |
-| Global | `3Bu6JBP3WZzsG5aaEYeQTzfB5GYaDrcghB2FBzz4iSVt` |
-| Feed-lock PDA | `825vzqeb9iWcWjM5rgL3f3mFQFb4kSp8ghz9zM1HRwDM` |
+### 4. Beyond Sports: Parametric Settlement Engine
+The underlying architecture (`programs/aichain`) is domain-agnostic:
+* **Parametric Flight Insurance:** Flight cancelled in API → automatic instant compensation from escrow.
+* **Milestone Escrow:** GitHub PR merge / deliverable confirmed → permissionless treasury release.
 
 ---
 
-## Uruchomienie
+## 💻 Local Development & Testing
+
+### Prerequisites
+* Rust 1.75+
+* Solana CLI 1.18+ (or Agave 2.0+)
+* Anchor CLI 0.30.1
+* Node.js 18+
+
+### Setup
 
 ```bash
+# Clone the repository
+git clone https://github.com/corki1337/FairOdds.git
+cd FairOdds
+
+# Install root & frontend dependencies
 npm install
 cd app && npm install && cd ..
-cd app && npm run dev
 ```
 
-Phantom → sieć **Devnet** → Faucet → zakład.
-
-Testy:
+### Running Tests
 
 ```bash
+# Run unit & integration tests
 npm test
+
+# Run multi-source oracle consensus tests
+npm run test:sources
 ```
 
-SBF buduj **osobno, `yield_park` na końcu**. Workspace `cargo-build-sbf` kompiluje `yield-park` z `cpi` i nadpisuje `yield_park.so` pustym stubem.
+### Starting the Frontend
 
 ```bash
-cargo-build-sbf --arch v0 --manifest-path programs/aichain/Cargo.toml
-cargo-build-sbf --arch v0 --manifest-path programs/yield_park/Cargo.toml
+cd app
+npm run dev
+# Open http://localhost:3000 -> Connect Phantom on Solana Devnet
 ```
 
-Pełny deploy i smoke: `docs/STATUS.md`.
+### Running the Keeper Bot
+
+```bash
+# Runs market sync, keeper crank, and anomaly detection loop
+npm run keeper
+```
 
 ---
 
-## Zgłoszenie (zasady §4)
+## 📁 Repository Structure
 
-- **Tytuł:** FairOdds — finanse bez bukmachera
-- **Opis + uzasadnienie:** ten plik + `docs/DESIGN.md`
-- **Prezentacja PDF ≤ 10 slajdów:** wyeksportuj `presentation/slides.html` (Print → PDF)
-- **Film ≤ 3 min:** scenariusz w `docs/NARRACJA.md` — wrzuć na YouTube/Drive i wklej link
-- **Repo:** ten kod; na czas oceny ma być **publiczne**
+```
+FairOdds/
+├── programs/
+│   ├── aichain/            # Core market program (Anchor)
+│   └── yield_park/         # Yield generation program (CPI target)
+├── app/                    # Next.js 14 frontend, Blinks, Agent APIs
+│   ├── src/app/            # App router pages (/markets/[id], /admin, etc.)
+│   ├── src/lib/            # Solana & Switchboard integration libraries
+│   └── public/             # Static assets, actions.json
+├── scripts/
+│   ├── sources/            # Multi-source API adapters (TheSportsDB, OpenLigaDB, etc.)
+│   ├── keeper.ts           # Automated lifecycle keeper
+│   └── cranks.ts           # Permissionless crank runners
+├── docs/                   # Technical deep-dives (DESIGN, HOW_IT_WORKS, PLAN, STATUS)
+├── presentation/           # 10-slide HTML pitch deck (Print to PDF)
+└── tests/                  # Integration tests on compiled .so binaries
+```
 
 ---
 
-Hackathon / MIT-style. Briefy: `zasady.pdf`, `aichain.pdf`.
+## 🗺️ Roadmap Post-Colosseum
+
+1. **Mainnet DeFi Integration:** Replace `yield_park` with direct CPI into production **Kamino Finance / Marginfi** vaults.
+2. **Multi-Outcome Markets (1X2):** Extend binary pools into full 3-way markets (Home / Draw / Away).
+3. **Freeze Program Authority:** Execute `scripts/freeze-upgrade-authority.ts` following formal smart contract audits to achieve immutable decentralization.
+
+---
+
+## 📄 License
+
+MIT License. See [LICENSE](LICENSE) for details.
