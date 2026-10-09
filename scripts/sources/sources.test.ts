@@ -3,6 +3,7 @@ import * as apiFootball from "./apiFootball";
 import * as footballData from "./footballData";
 import { consensus, linkFixtures, nameSimilarity } from "./match";
 import * as openligadb from "./openligadb";
+import * as pandascore from "./pandascore";
 import * as thesportsdb from "./thesportsdb";
 import type { SourceFixture, Vote } from "./types";
 
@@ -159,4 +160,16 @@ describe("provider normalisation", () => {
     expect((await footballData.result("5")).status).to.equal("pending");
     expect((await apiFootball.result("5")).status).to.equal("pending");
   });
+
+  it("PandaScore maps videogame slugs to proper categories", () => {
+    expect(pandascore.categoryOf("cs-go")).to.equal("esports_cs2");
+    expect(pandascore.categoryOf("csgo")).to.equal("esports_cs2");
+    expect(pandascore.categoryOf("cs-2")).to.equal("esports_cs2");
+    expect(pandascore.categoryOf("league-of-legends")).to.equal("esports_lol");
+    expect(pandascore.categoryOf("lol")).to.equal("esports_lol");
+    expect(pandascore.categoryOf("dota-2")).to.equal("esports");
+    expect(pandascore.categoryOf("valorant")).to.equal("esports");
+    expect(pandascore.categoryOf("unknown")).to.equal("esports");
+  });
 });
+

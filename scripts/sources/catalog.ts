@@ -65,6 +65,7 @@ function toRow(f: SourceFixture, id: number, marketable: boolean): Fixture {
     sources: { [f.source]: f.sourceId, ...f.refs },
     category: f.category,
     league: f.league,
+    format: f.format,
     teamA: f.home,
     teamB: f.away,
     startTime: f.startTime,
@@ -151,11 +152,11 @@ export async function buildCatalog(log: (msg: string) => void = console.log) {
     let added = 0;
     for (const p of other) {
       if (linkedPanda.has(p.sourceId)) continue;
-      const row = toRow(p, UNMARKETABLE_ID_OFFSET + Number(p.sourceId), false);
+      const row = toRow(p, UNMARKETABLE_ID_OFFSET + Number(p.sourceId), true);
       rows.set(row.key, row);
       added++;
     }
-    log(`pandascore: ${other.length}, linked ${links.size}, listed without market ${added}`);
+    log(`pandascore: ${other.length}, linked ${links.size}, added marketable ${added}`);
   } else {
     log("pandascore: skipped (no PANDASCORE_TOKEN)");
   }

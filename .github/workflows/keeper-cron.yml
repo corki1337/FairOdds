@@ -1,0 +1,26 @@
+name: Keeper Cron Crank
+
+on:
+  schedule:
+    # Run every 15 minutes
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      manual_trigger:
+        description: 'Run keeper crank manually'
+        required: false
+        default: 'true'
+
+jobs:
+  keeper-crank:
+    name: Ping Keeper Crank Endpoint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Keeper Cron Route
+        if: env.DEPLOYED_URL != ''
+        run: |
+          echo "Pinging keeper cron at $DEPLOYED_URL/api/cron/keeper"
+          curl -s -f -X GET "$DEPLOYED_URL/api/cron/keeper?secret=$CRON_SECRET" || echo "Keeper ping completed with status $?"
+        env:
+          DEPLOYED_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}

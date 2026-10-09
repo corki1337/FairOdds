@@ -8,6 +8,7 @@ Colosseum Hackathon (Crypto World's Fair) · Superteam Poland — *Finance Witho
 
 | | |
 |---|---|
+| Status CI | [![CI](https://github.com/corki1337/FairOdds/actions/workflows/ci.yml/badge.svg)](https://github.com/corki1337/FairOdds/actions/workflows/ci.yml) |
 | Produkt | FairOdds (UI) |
 | Programy | `aichain` + `yield_park` |
 | Sieć | Solana **devnet** |

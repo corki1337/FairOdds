@@ -231,11 +231,20 @@ export default function MarketPage() {
     <div className="space-y-6">
       <div>
         <p className="text-sm text-mute">Match #{params.id}</p>
-        <h1 className="font-display text-4xl font-bold">
-          {teamA} <span className="text-mute">vs</span> {teamB}
-        </h1>
-        <p className="mt-2 text-sm uppercase tracking-wide text-accent">{status}</p>
-        {fixture && <p className="mt-1 text-sm text-mute">{fixture.league}</p>}
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="font-display text-4xl font-bold">
+            {teamA} <span className="text-mute">vs</span> {teamB}
+          </h1>
+          {fixture?.format && (
+            <span className="rounded border border-accent/40 bg-accent/15 px-2.5 py-1 text-sm font-bold uppercase tracking-wider text-accent">
+              {fixture.format}
+            </span>
+          )}
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <span className="text-sm uppercase tracking-wide text-accent font-semibold">{status}</span>
+          {fixture && <span className="text-sm text-mute">· {fixture.league}</span>}
+        </div>
         {status === "resolved" && m.winningTeam !== null && (
           <p className="mt-1 text-sm text-white">
             Wygrywa {Number(m.winningTeam) === 0 ? teamA : teamB} (z feedu Switchboard)

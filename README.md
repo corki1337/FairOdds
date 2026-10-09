@@ -5,6 +5,7 @@
 
 Built for the **Colosseum Hackathon (Crypto World's Fair)** — *DeFi Track* · In partnership with **Superteam**.
 
+[![CI](https://github.com/corki1337/FairOdds/actions/workflows/ci.yml/badge.svg)](https://github.com/corki1337/FairOdds/actions/workflows/ci.yml)
 [![Solana Devnet](https://img.shields.io/badge/Solana-Devnet-14F195?logo=solana&logoColor=black)](https://explorer.solana.com/address/4FNHp1MjhJTqZZqQq333qrDBduT9orpF4zMTdXXUT1dg?cluster=devnet)
 [![Anchor Framework](https://img.shields.io/badge/Anchor-0.30.1-blue)](https://www.anchor-lang.com/)
 [![Switchboard](https://img.shields.io/badge/Oracle-Switchboard_On--Demand-orange)](https://switchboard.xyz/)

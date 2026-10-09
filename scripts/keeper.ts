@@ -138,43 +138,71 @@ async function allMarkets(ctx: Ctx): Promise<{ publicKey: PublicKey; account: Ma
   return acc.all([{ dataSize: acc.size }]);
 }
 
-/** Keeps `MARKETS` markets open ahead of kickoff, earliest fixtures first. */
+const DEFAULT_QUOTAS: Record<string, number> = {
+  football: 10,
+  esports_cs2: 5,
+  esports_lol: 5,
+  esports: 5,
+};
+
+const MARKETS_BY_CAT: Record<string, number> = {
+  football: Number(process.env.KEEPER_MARKETS_FOOTBALL || DEFAULT_QUOTAS.football),
+  esports_cs2: Number(process.env.KEEPER_MARKETS_CS2 || DEFAULT_QUOTAS.esports_cs2),
+  esports_lol: Number(process.env.KEEPER_MARKETS_LOL || DEFAULT_QUOTAS.esports_lol),
+  esports: Number(process.env.KEEPER_MARKETS_ESPORTS || DEFAULT_QUOTAS.esports),
+};
+
+/** Keeps configured category quotas of markets open ahead of kickoff, earliest fixtures first. */
 async function ensureMarkets(ctx: Ctx, fixtures: Fixture[]) {
   const now = Math.floor(Date.now() / 1000);
   const markets = await allMarkets(ctx);
-  const openAhead = markets.filter(
-    (m) => statusOf(m.account) === "open" && Number(m.account.startTime) > now
-  ).length;
-  let missing = MARKETS - openAhead;
-  if (missing <= 0) return;
-  const candidates = fixtures
-    .filter((f) => f.marketable && !f.finished && f.startTime > now + MIN_LEAD_SECONDS)
-    .sort((a, b) => a.startTime - b.startTime);
-  for (const f of candidates) {
-    if (missing <= 0) break;
-    const market = pdas.market(ctx.aichain.programId, f.id);
-    if (await fetchMarket(ctx, market)) continue;
-    const secondary = secondaryFor(f);
-    try {
-      const res = await createMarketWithFeed(ctx, {
-        matchId: f.id,
-        teamA: f.teamA,
-        teamB: f.teamB,
-        start: f.startTime,
-        end: f.endTime,
-        resolveDeadline: f.endTime + WINDOW_MINS * 60,
-        secondary,
-      });
-      missing--;
-      log(
-        `created #${f.id} ${f.teamA} vs ${f.teamB}`,
-        secondary ? `(2 feeds, OpenLigaDB ${secondary.sourceRef})` : "(1 feed)",
-        res.sig
-      );
-    } catch (e) {
-      log(`create #${f.id} failed:`, String((e as Error).message ?? e).slice(0, 300));
+  const fixtureById = new Map<string, Fixture>(fixtures.map((f) => [String(f.id), f]));
+
+  // Count open markets ahead of kickoff per category
+  const openByCat = new Map<string, number>();
+  for (const m of markets) {
+    if (statusOf(m.account) === "open" && Number(m.account.startTime) > now) {
+      const matchId = m.account.matchId.toString();
+      const cat = fixtureById.get(matchId)?.category ?? "football";
+      openByCat.set(cat, (openByCat.get(cat) ?? 0) + 1);
     }
-    await sleep(800);
+  }
+
+  for (const [cat, targetQuota] of Object.entries(MARKETS_BY_CAT)) {
+    const openAhead = openByCat.get(cat) ?? 0;
+    let missing = targetQuota - openAhead;
+    if (missing <= 0) continue;
+
+    const candidates = fixtures
+      .filter((f) => f.category === cat && f.marketable && !f.finished && f.startTime > now + MIN_LEAD_SECONDS)
+      .sort((a, b) => a.startTime - b.startTime);
+
+    for (const f of candidates) {
+      if (missing <= 0) break;
+      const market = pdas.market(ctx.aichain.programId, f.id);
+      if (await fetchMarket(ctx, market)) continue;
+      const secondary = secondaryFor(f);
+      try {
+        const res = await createMarketWithFeed(ctx, {
+          matchId: f.id,
+          teamA: f.teamA,
+          teamB: f.teamB,
+          start: f.startTime,
+          end: f.endTime,
+          resolveDeadline: f.endTime + WINDOW_MINS * 60,
+          secondary,
+        });
+        missing--;
+        log(
+          `created #${f.id} [${cat}] ${f.teamA} vs ${f.teamB}`,
+          secondary ? `(2 feeds, OpenLigaDB ${secondary.sourceRef})` : "(1 feed)",
+          res.sig
+        );
+      } catch (e) {
+        log(`create #${f.id} [${cat}] failed:`, String((e as Error).message ?? e).slice(0, 300));
+      }
+      await sleep(800);
+    }
   }
 }
 

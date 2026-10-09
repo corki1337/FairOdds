@@ -37,6 +37,8 @@ export type Fixture = {
   finished: boolean;
   scoreA: number | null;
   scoreB: number | null;
+  /** Series format, e.g. "Bo1", "Bo3", "Bo5" */
+  format?: string;
 };
 
 export type FixtureCategory = {
@@ -90,9 +92,11 @@ export const SOURCE_LABELS: Record<FixtureSourceId, string> = {
 };
 
 export function sourceUrlOf(f: Pick<Fixture, "id" | "marketable" | "sources">): string {
-  if (f.marketable) return eventUrl(f.id);
-  const panda = f.sources.pandascore;
-  return panda ? `https://api.pandascore.co/matches/${panda}` : "";
+  const panda = f.sources?.pandascore;
+  if (f.id >= UNMARKETABLE_ID_OFFSET || (!f.marketable && panda)) {
+    return panda ? `https://api.pandascore.co/matches/${panda}` : "";
+  }
+  return eventUrl(f.id);
 }
 
 /** Rows written before multi-source catalogs had no `key`/`sources`; treat them as TheSportsDB. */
