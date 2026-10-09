@@ -1,6 +1,6 @@
 # Uzasadnienie projektowe — FairOdds
 
-Wymagane przez zasady Superteam (§3): jaka relacja, kto był pośrednikiem, co zmienia jego usunięcie, dla kogo to jest.
+Kluczowe pytania projektowe: jaka relacja, kto był pośrednikiem, co zmienia jego usunięcie i dla kogo budujemy to rozwiązanie.
 
 ## Relacja finansowa
 
@@ -8,7 +8,7 @@ Wymagane przez zasady Superteam (§3): jaka relacja, kto był pośrednikiem, co 
 
 **Po:** dwóch (albo stu) graczy wkłada USDC do wspólnej puli na Solanie. Kurs jest pochodną udziałów w puli. Werdykt to znak różnicy bramek z publicznego API, podpisany przez sieć oracle. Wypłata to dzielenie całkowite, nie decyzja człowieka.
 
-To ten sam wzorzec, który zasady podają przy lendingu: nie ufasz drugiej stronie ani instytucji, ufasz regule, której nikt nie obejdzie.
+To ten sam wzorzec, który znamy z lendingu: nie ufasz drugiej stronie ani instytucji, ufasz regule, której nikt nie obejdzie.
 
 ## Kto był pośrednikiem
 

@@ -6,11 +6,11 @@ use yield_park::state::Park;
 use crate::errors::AichainError;
 use crate::events::MarketResolved;
 use crate::state::{
-    GlobalConfig, MarketState, MarketStatus, CANCEL_DRAW, CANCEL_NONE, CANCEL_NO_WINNERS,
-    MIN_ORACLE_SAMPLES, SEED_FEED_LOCK, SEED_GLOBAL, SEED_MARKET, SEED_TREASURY, SEED_VAULT,
-    SEED_VERSION,
+    GlobalConfig, MarketState, MarketStatus, SecondaryOracle, CANCEL_DRAW, CANCEL_NONE,
+    CANCEL_NO_WINNERS, MIN_ORACLE_SAMPLES, SEED_FEED_LOCK, SEED_GLOBAL, SEED_MARKET,
+    SEED_ORACLE2, SEED_TREASURY, SEED_VAULT, SEED_VERSION,
 };
-use crate::switchboard::{PullFeedView, OUTCOME_DRAW};
+use crate::switchboard::{agreed_diff, outcome_of_diff, PullFeedView, OUTCOME_DRAW};
 use crate::yield_cpi::{settle_vault, SettleAccounts};
 
 /// Permissionless: anyone may crank once the match is over and the pinned
@@ -43,6 +43,13 @@ pub struct ResolveMarket<'info> {
     /// CHECK: PDA that must own the feed; never signs
     #[account(seeds = [SEED_VERSION, SEED_FEED_LOCK], bump)]
     pub feed_lock: UncheckedAccount<'info>,
+
+    /// CHECK: always this market's derived PDA; empty means the market has a single feed
+    #[account(seeds = [SEED_VERSION, SEED_ORACLE2, market.key().as_ref()], bump)]
+    pub secondary: UncheckedAccount<'info>,
+
+    /// CHECK: required and validated against `secondary` when that account exists
+    pub secondary_feed: Option<UncheckedAccount<'info>>,
 
     #[account(
         mut,
@@ -97,9 +104,17 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
         feed.feed_hash == ctx.accounts.market.feed_hash,
         AichainError::FeedHashMismatch
     );
-    let result = feed.outcome(end_time, MIN_ORACLE_SAMPLES)?;
-
+    let primary = feed.score_diff(end_time, MIN_ORACLE_SAMPLES)?;
     let market_key = ctx.accounts.market.key();
+    let secondary = secondary_diff(
+        &ctx.accounts.secondary.to_account_info(),
+        ctx.accounts.secondary_feed.as_ref().map(|f| f.to_account_info()),
+        &market_key,
+        &ctx.accounts.feed_lock.key(),
+        end_time,
+    )?;
+    let result = outcome_of_diff(agreed_diff(primary, secondary)?);
+
     let yield_harvested = settle_vault(SettleAccounts {
         market: &mut ctx.accounts.market,
         vault: &mut ctx.accounts.vault,
@@ -139,4 +154,29 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
     });
 
     Ok(())
+}
+
+fn secondary_diff(
+    secondary: &AccountInfo,
+    feed: Option<AccountInfo>,
+    market: &Pubkey,
+    feed_lock: &Pubkey,
+    end_time: i64,
+) -> Result<Option<i128>> {
+    if secondary.data_is_empty() {
+        return Ok(None);
+    }
+    require_keys_eq!(*secondary.owner, crate::ID, AichainError::SecondaryFeedMismatch);
+    let pinned = {
+        let data = secondary.try_borrow_data()?;
+        SecondaryOracle::try_deserialize(&mut &data[..])?
+    };
+    require_keys_eq!(pinned.market, *market, AichainError::SecondaryFeedMismatch);
+    let feed = feed.ok_or(error!(AichainError::SecondaryFeedMismatch))?;
+    require_keys_eq!(feed.key(), pinned.feed, AichainError::SecondaryFeedMismatch);
+
+    let view = PullFeedView::load(&feed)?;
+    view.verify_immutable(feed_lock)?;
+    require!(view.feed_hash == pinned.feed_hash, AichainError::FeedHashMismatch);
+    Ok(Some(view.score_diff(end_time, MIN_ORACLE_SAMPLES)?))
 }

@@ -7,10 +7,17 @@ import { useAichainProgram } from "@/lib/hooks/useProgram";
 import { decodeTeamName, impliedOdds, statusKey } from "@/lib/anchor";
 import {
   CATEGORY_NAV,
+  SOURCE_LABELS,
   scoreLabel,
   type FixtureCategoryId,
   type FixtureView,
 } from "@/lib/fixtures";
+
+function sourceNames(f: FixtureView) {
+  return (Object.keys(f.sources) as (keyof typeof SOURCE_LABELS)[])
+    .map((s) => SOURCE_LABELS[s])
+    .join(", ");
+}
 
 type MarketRow = {
   publicKey: string;
@@ -421,16 +428,21 @@ export default function HomePage() {
                     const score = scoreLabel(f);
                     return (
                       <MatchRow
-                        key={f.id}
+                        key={f.key}
                         href={onChain ? `/markets/${f.matchId}` : undefined}
                         accent={!!onChain}
                         timeLabel={formatKickoff(f.startTime)}
                         league={f.league}
                         title={`${f.teamA} – ${f.teamB}`}
                         subtitle={[
-                          `#${f.matchId}`,
+                          f.marketable ? `#${f.matchId}` : `tylko ${sourceNames(f)}`,
                           score && `wynik ${score}`,
-                          onChain ? `pula ${pool.toFixed(0)} USDC` : "brak rynku on-chain",
+                          onChain
+                            ? `pula ${pool.toFixed(0)} USDC`
+                            : f.marketable
+                              ? "brak rynku on-chain"
+                              : "bez rynku: brak publicznego źródła do rozliczenia",
+                          f.sources.openligadb && "2 źródła wyniku",
                         ]
                           .filter(Boolean)
                           .join(" · ")}

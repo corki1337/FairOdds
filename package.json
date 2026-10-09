@@ -14,6 +14,9 @@
     "markets:create": "ts-node --transpile-only scripts/create-from-fixture.ts",
     "markets:seed": "ts-node --transpile-only scripts/seed-liquidity.ts",
     "crank": "ts-node --transpile-only scripts/resolve-crank.ts",
+    "keeper": "ts-node --transpile-only scripts/keeper.ts",
+    "sources:probe": "ts-node --transpile-only scripts/probe-sources.ts",
+    "test:sources": "ts-mocha -p tsconfig.json scripts/sources/*.test.ts",
     "smoke:devnet": "ts-node --transpile-only scripts/smoke-devnet.ts"
   },
   "dependencies": {

@@ -1,5 +1,6 @@
 #![allow(ambiguous_glob_reexports)]
 
+pub mod attach_secondary_feed;
 pub mod cancel_expired;
 pub mod claim_winnings;
 pub mod faucet_mint;
@@ -12,6 +13,7 @@ pub mod refund;
 pub mod resolve_market;
 pub mod withdraw_treasury;
 
+pub use attach_secondary_feed::*;
 pub use cancel_expired::*;
 pub use claim_winnings::*;
 pub use faucet_mint::*;

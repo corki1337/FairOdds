@@ -120,10 +120,10 @@ impl PullFeedView {
         Ok(())
     }
 
-    /// Outcome from oracle submissions that landed at or after `not_before`.
-    /// Requires at least `min_samples` such submissions and that they all agree
-    /// on the exact score difference.
-    pub fn outcome(&self, not_before: i64, min_samples: usize) -> Result<u8> {
+    /// Score difference from oracle submissions that landed at or after `not_before`.
+    /// Requires at least `min_samples` such submissions, that they all agree exactly,
+    /// and that the value is a whole number within `MAX_SCORE_DIFF`.
+    pub fn score_diff(&self, not_before: i64, min_samples: usize) -> Result<i128> {
         let fresh: Vec<&Submission> = self
             .submissions
             .iter()
@@ -136,7 +136,11 @@ impl PullFeedView {
             fresh.iter().all(|s| s.value == value),
             AichainError::OracleDisagreement
         );
-        decode_outcome(value)
+        decode_diff(value)
+    }
+
+    pub fn outcome(&self, not_before: i64, min_samples: usize) -> Result<u8> {
+        Ok(outcome_of_diff(self.score_diff(not_before, min_samples)?))
     }
 }
 
@@ -151,6 +155,10 @@ pub const MAX_SCORE_DIFF: i128 = 100;
 /// The feed carries `home_score - away_score`, so a match that has not finished yet simply
 /// produces no value at all and the oracles cannot push anything.
 pub fn decode_outcome(value: i128) -> Result<u8> {
+    Ok(outcome_of_diff(decode_diff(value)?))
+}
+
+pub fn decode_diff(value: i128) -> Result<i128> {
     require!(
         value % FEED_SCALE == 0,
         AichainError::InvalidOracleResult
@@ -160,13 +168,26 @@ pub fn decode_outcome(value: i128) -> Result<u8> {
         (-MAX_SCORE_DIFF..=MAX_SCORE_DIFF).contains(&diff),
         AichainError::InvalidOracleResult
     );
-    Ok(if diff > 0 {
+    Ok(diff)
+}
+
+pub fn outcome_of_diff(diff: i128) -> u8 {
+    if diff > 0 {
         OUTCOME_TEAM_A
     } else if diff < 0 {
         OUTCOME_TEAM_B
     } else {
         OUTCOME_DRAW
-    })
+    }
+}
+
+/// With a second source pinned, both must report the same exact difference: a 2:1 vs 3:1
+/// split names the same winner but proves one provider is wrong, so nothing is paid.
+pub fn agreed_diff(primary: i128, secondary: Option<i128>) -> Result<i128> {
+    if let Some(s) = secondary {
+        require!(s == primary, AichainError::SourcesDisagree);
+    }
+    Ok(primary)
 }
 
 #[cfg(test)]
@@ -266,6 +287,24 @@ mod tests {
         assert!(decode_outcome(-(MAX_SCORE_DIFF + 1) * FEED_SCALE).is_err());
         assert!(decode_outcome(i128::MAX).is_err());
         assert!(decode_outcome(i128::MIN + 1).is_err());
+    }
+
+    #[test]
+    fn score_diff_returns_exact_difference() {
+        let feed = PullFeedView::parse(FIXTURE).unwrap();
+        assert_eq!(feed.score_diff(1_791_073_601, 1).unwrap(), 1);
+        assert!(feed.score_diff(1_791_073_602, 1).is_err());
+    }
+
+    #[test]
+    fn second_source_must_match_exactly() {
+        assert_eq!(agreed_diff(2, None).unwrap(), 2);
+        assert_eq!(agreed_diff(2, Some(2)).unwrap(), 2);
+        assert_eq!(agreed_diff(0, Some(0)).unwrap(), 0);
+        // Same winner, different margin: still a dispute.
+        assert!(agreed_diff(2, Some(1)).is_err());
+        assert!(agreed_diff(1, Some(-1)).is_err());
+        assert!(agreed_diff(0, Some(1)).is_err());
     }
 
     fn hex(b: &[u8]) -> String {

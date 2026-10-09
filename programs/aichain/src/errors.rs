@@ -76,4 +76,14 @@ pub enum AichainError {
     InvalidMint,
     #[msg("Amount exceeds treasury balance")]
     InsufficientTreasury,
+    #[msg("Unknown secondary result source")]
+    UnknownSource,
+    #[msg("Secondary feed can only be attached before any bet and before kickoff")]
+    MarketHasBets,
+    #[msg("Secondary feed must differ from the primary feed and job")]
+    SecondaryFeedDuplicate,
+    #[msg("Secondary feed missing or not the one pinned for this market")]
+    SecondaryFeedMismatch,
+    #[msg("Primary and secondary sources report different results")]
+    SourcesDisagree,
 }

@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import raw from "@/data/fixtures.json";
-import { toFixtureView, type Fixture } from "@/lib/fixtures";
+import { loadAnomalies, loadCatalog } from "@/lib/catalog";
+import { toFixtureView } from "@/lib/fixtures";
 
-type Catalog = { provider: string; lookupUrl: string; fixtures: Fixture[] };
-
-const catalog = raw as Catalog;
+export const dynamic = "force-dynamic";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  const catalog = loadCatalog();
+  const anomaly = loadAnomalies()[params.id] ?? null;
   const f = catalog.fixtures.find((x) => x.id === Number(params.id));
   if (!f) {
-    return NextResponse.json({ error: "fixture not found" }, { status: 404 });
+    return NextResponse.json({ error: "fixture not found", anomaly }, { status: 404 });
   }
   return NextResponse.json({
     provider: catalog.provider,
     lookupUrl: catalog.lookupUrl,
     fixture: toFixtureView(f),
+    anomaly,
   });
 }

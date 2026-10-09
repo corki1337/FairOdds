@@ -1,22 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import raw from "@/data/fixtures.json";
-import {
-  CATEGORIES,
-  toFixtureView,
-  type Fixture,
-  type FixtureCategoryId,
-} from "@/lib/fixtures";
+import { loadCatalog } from "@/lib/catalog";
+import { CATEGORIES, toFixtureView, type FixtureCategoryId } from "@/lib/fixtures";
 
-type Catalog = {
-  provider: string;
-  lookupUrl: string;
-  fixtures: Fixture[];
-  meta?: Record<string, unknown>;
-};
-
-const catalog = raw as Catalog;
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const catalog = loadCatalog();
   const category = req.nextUrl.searchParams.get("category") as FixtureCategoryId | null;
   const statusFilter = req.nextUrl.searchParams.get("status") || "scheduled";
   const sort = req.nextUrl.searchParams.get("sort") || "time"; // time | time_desc | league

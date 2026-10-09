@@ -27,6 +27,7 @@ import {
   parkPda,
   parkVaultPda,
   positionPda,
+  secondaryOraclePda,
   treasuryPda,
   vaultPda,
 } from "./anchor";
@@ -35,7 +36,11 @@ import {
   buildCreateFeedIxs,
   buildFeedUpdateIxs,
   decodeFeedSubmissions,
+  decodeSecondaryOracle,
   loadSwitchboard,
+  SbProgram,
+  scoreDiffJobs,
+  secondaryJobs,
 } from "./switchboard";
 
 const programId = new PublicKey(AIchAIN_PROGRAM_ID);
@@ -93,19 +98,24 @@ export async function createMarketTx(
     start: number;
     end: number;
     resolveDeadline: number;
+    /** Second independent feed; attached in the same transaction as the market itself. */
+    secondary?: { source: number; sourceRef: string };
   }
-): Promise<{ sig: string; feed: PublicKey }> {
+): Promise<{ sig: string; feed: PublicKey; secondaryFeed?: PublicKey }> {
   if (!wallet.publicKey) throw new Error("Połącz wallet.");
+  const payer = wallet.publicKey;
   const { global, mint } = await shared(program);
   const [market] = marketPda(programId, BigInt(p.matchId));
   const [vault] = vaultPda(programId, market);
   const [feedLock] = feedLockPda(programId);
   const sb = await loadSwitchboard(connection);
-  const { feedKeypair, feed, ixs } = await buildCreateFeedIxs(sb, {
-    matchId: BigInt(p.matchId),
-    payer: wallet.publicKey,
+  const primary = await buildCreateFeedIxs(sb, {
+    jobs: scoreDiffJobs(p.matchId),
+    name: `fairodds-${p.matchId}`,
+    payer,
     feedLock,
   });
+  const feed = primary.feed;
   const initIx = await program.methods
     .initializeMarket(
       new BN(p.matchId),
@@ -128,8 +138,58 @@ export async function createMarketTx(
       rent: SYSVAR_RENT_PUBKEY,
     })
     .instruction();
-  const sig = await sendV0(connection, wallet, [...ixs, initIx], { signers: [feedKeypair] });
-  return { sig, feed };
+  if (!p.secondary) {
+    const sig = await sendV0(connection, wallet, [...primary.ixs, initIx], {
+      signers: [primary.feedKeypair],
+    });
+    return { sig, feed };
+  }
+  const second = await buildCreateFeedIxs(sb, {
+    jobs: secondaryJobs(p.secondary.source, p.secondary.sourceRef),
+    name: `fairodds-${p.matchId}-s${p.secondary.source}`,
+    payer,
+    feedLock,
+  });
+  await sendV0(connection, wallet, primary.ixs, { signers: [primary.feedKeypair] });
+  await sendV0(connection, wallet, second.ixs, { signers: [second.feedKeypair] });
+  const [secondary] = secondaryOraclePda(programId, market);
+  const attachIx = await program.methods
+    .attachSecondaryFeed(p.secondary.source, new BN(p.secondary.sourceRef))
+    .accounts({
+      authority: payer,
+      global,
+      market,
+      secondary,
+      secondaryFeed: second.feed,
+      feedLock,
+      systemProgram: SystemProgram.programId,
+    })
+    .instruction();
+  const sig = await sendV0(connection, wallet, [initIx, attachIx]);
+  return { sig, feed, secondaryFeed: second.feed };
+}
+
+export async function fetchSecondaryOracle(connection: Connection, market: PublicKey) {
+  const [pda] = secondaryOraclePda(programId, market);
+  const info = await connection.getAccountInfo(pda, "confirmed");
+  return info && info.owner.equals(programId) ? decodeSecondaryOracle(info.data) : null;
+}
+
+async function feedUpdate(
+  sb: SbProgram,
+  connection: Connection,
+  feed: PublicKey,
+  jobs: ReturnType<typeof scoreDiffJobs>,
+  payer: PublicKey,
+  notBefore: number
+): Promise<{ ixs: TransactionInstruction[]; luts: AddressLookupTableAccount[] } | null> {
+  const info = await connection.getAccountInfo(feed, "confirmed");
+  if (info && decodeFeedSubmissions(info.data, notBefore).values.length > 0) return null;
+  const upd = await buildFeedUpdateIxs(sb, { feed, jobs, payer });
+  if (upd.ixs.length === 0) {
+    throw new Error(`Oracle nie zwrócił wyniku: ${upd.errors.join("; ") || "brak odpowiedzi"}`);
+  }
+  return { ixs: upd.ixs, luts: upd.luts };
 }
 
 export async function lockIx(program: Program, crank: PublicKey, market: PublicKey) {
@@ -162,7 +222,9 @@ async function settleAccounts(program: Program, market: PublicKey) {
 
 /**
  * Permissionless settlement: requests a signed Switchboard update for the market's pinned
- * feed and resolves in the same transaction. Locks first if the market is still Open.
+ * feed and resolves in the same transaction. Locks first if the market is still Open. A
+ * pinned second feed is updated in its own transaction first; the program then requires
+ * both to report the same score difference.
  */
 export async function resolveWithOracle(
   program: Program,
@@ -178,24 +240,32 @@ export async function resolveWithOracle(
     await sendV0(connection, wallet, [await lockIx(program, wallet.publicKey, market.publicKey)]);
   }
   const feed = m.oracleFeed as PublicKey;
-  const ixs: TransactionInstruction[] = [];
-  let luts: AddressLookupTableAccount[] = [];
-  const info = await connection.getAccountInfo(feed, "confirmed");
-  const fresh = info ? decodeFeedSubmissions(info.data, Number(m.endTime)).values.length > 0 : false;
-  if (!fresh) {
-    const sb = await loadSwitchboard(connection);
-    const upd = await buildFeedUpdateIxs(sb, {
-      feed,
-      matchId: BigInt(m.matchId.toString()),
-      payer: wallet.publicKey,
-    });
-    if (upd.ixs.length === 0) {
-      throw new Error(`Oracle nie zwrócił wyniku: ${upd.errors.join("; ") || "brak odpowiedzi"}`);
-    }
-    ixs.push(...upd.ixs);
-    luts = upd.luts;
+  const endTime = Number(m.endTime);
+  const sb = await loadSwitchboard(connection);
+  const second = await fetchSecondaryOracle(connection, market.publicKey);
+  if (second) {
+    const upd = await feedUpdate(
+      sb,
+      connection,
+      second.feed,
+      secondaryJobs(second.source, second.sourceRef),
+      wallet.publicKey,
+      endTime
+    );
+    if (upd) await sendV0(connection, wallet, upd.ixs, { luts: upd.luts });
   }
+  const upd = await feedUpdate(
+    sb,
+    connection,
+    feed,
+    scoreDiffJobs(m.matchId.toString()),
+    wallet.publicKey,
+    endTime
+  );
+  const ixs: TransactionInstruction[] = [...(upd?.ixs ?? [])];
+  const luts = upd?.luts ?? [];
   const [feedLock] = feedLockPda(programId);
+  const [secondary] = secondaryOraclePda(programId, market.publicKey);
   ixs.push(
     await program.methods
       .resolveMarket()
@@ -204,6 +274,9 @@ export async function resolveWithOracle(
         market: market.publicKey,
         oracleFeed: feed,
         feedLock,
+        secondary,
+        // Optional account: Anchor sends the program id in its place when null.
+        secondaryFeed: (second?.feed ?? null) as PublicKey,
         ...(await settleAccounts(program, market.publicKey)),
         tokenProgram: TOKEN_PROGRAM_ID,
       })

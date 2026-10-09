@@ -1,11 +1,11 @@
 # STATUS — checklist projektu
 
-Ostatnia aktualizacja: **2026-10-04**
+Ostatnia aktualizacja: **2026-10-07**
 
 Produkt: **FairOdds** — bukmacher na prawdziwych meczach (TheSportsDB + Switchboard).  
 Programy on-chain nadal nazywają się `aichain` / `yield_park`.
 
-Dokumentacja zgłoszenia: [`../README.md`](../README.md), [`DESIGN.md`](DESIGN.md), [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md), [`NARRACJA.md`](NARRACJA.md).
+Dokumentacja zgłoszenia: [`../README.md`](../README.md), [`DESIGN.md`](DESIGN.md), [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md), [`PLAN.md`](PLAN.md).
 
 ## Zrobione
 
@@ -21,6 +21,17 @@ Dokumentacja zgłoszenia: [`../README.md`](../README.md), [`DESIGN.md`](DESIGN.m
 - [x] Upgrade obu programów na devnet (te same IDs), mint → PDA
 - [x] 8 rynków prematch z płynnością po obu stronach
 - [x] **Smoke OK**: Sevilla 1:3 Barcelona (`#2506233`) → claim 400 USDC
+
+## Wiele źródeł + drugi feed (kod gotowy, devnet jeszcze nie)
+
+- [x] Probe na żywo (`npm run sources:probe`): Bundesliga TheSportsDB ↔ OpenLigaDB 30/30 sparowane, 20/20 zgodnych wyników, oba joby zwracają ten sam diff z oracli Switchboard
+- [x] `aichain`: `SecondaryOracle` PDA `["v2","oracle2",market]`, `attach_secondary_feed` (tylko pusty rynek przed startem), `resolve_market` wymaga identycznego diffu z obu feedów (`SourcesDisagree`); stare rynki bez PDA bez zmian; layout `MarketState` nietknięty
+- [x] IDL (`scripts/patch-idl.ts`), `switchboard.ts`, `cranks.ts`, `common.ts`: tworzenie z drugim feedem, resolve z osobną tx dla update'u drugiego feedu
+- [x] `scripts/sources/*`: TheSportsDB, OpenLigaDB, football-data, API-Football, PandaScore; parowanie po nazwach i kickoffie, konsensus bez głosowania większością
+- [x] Katalog w runtime (`/api/fixtures` czyta plik, bez rebuildu); `sources`, `marketable`
+- [x] `npm run keeper`: odświeżanie katalogu, auto-rynki, crank z blokadą przy sporze → `data/anomalies.json` → baner w UI
+- [x] Testy: unit `aichain` **20/20** (host, `cargo test -p aichain --lib`), adaptery **11/11** (`npm run test:sources`); integracja +3 scenariusze (zgodne / rozbieżne → refund / attach po zakładzie i po starcie) — kompiluje się, **nie uruchomione** (brak `.so`)
+- [ ] `cargo-build-sbf`, uruchomienie `tests/program-test` (13), upgrade `aichain` na devnet (`solana program extend` jeśli `.so` urósł), smoke z dwoma feedami na meczu Bundesligi — wymaga Solana CLI, ~20 GB wolnego, klucza authority `4W3P…qBQo` i `deploy-config.json`
 
 ## Demo (devnet)
 
@@ -40,6 +51,7 @@ Dokumentacja zgłoszenia: [`../README.md`](../README.md), [`DESIGN.md`](DESIGN.m
 
 ```powershell
 npm test                   # yield_park unit + integration (buduje oba .so osobno)
+npm run test:sources       # adaptery źródeł, parowanie, konsensus
 npm run smoke:devnet       # e2e na skończonym meczu TheSportsDB
 ```
 
@@ -68,6 +80,7 @@ cd app; npm run dev
 npm run markets:create
 npm run markets:seed
 npm run crank -- --loop
+npm run keeper             # albo zamiast powyższych: katalog + rynki + crank w jednej pętli
 ```
 
 ## Jeszcze po naszej stronie (nie blokuje demo)

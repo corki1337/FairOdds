@@ -124,3 +124,20 @@ Withdraw: tylko authority, tylko konto treasury. Komentarz w kodzie i constraint
 | Wynik w API | https://www.thesportsdb.com/api/v1/json/3/lookupevent.php?id=2506233 |
 
 Otwórz TheSportsDB w drugiej karcie: `intHomeScore=1`, `intAwayScore=3`, diff = −2 → goście. Tak program zobaczył Barcelonę.
+
+---
+
+## Automatyzacja — Keeper & Serverless Cron
+
+Cykl życia rynków (lock po kickoffie, resolve po meczu, cancel po deadline) jest w 100% permissionless i może być obsługiwany na dwa sposoby:
+
+1. **Lokalny / Dedykowany Bot (`scripts/keeper.ts`):**
+   * Uruchamiany przez `npm run keeper`.
+   * Działa w nieskończonej pętli, monitoruje rynki i wysyła transakcje.
+2. **Serverless Cron na Vercelu (`/api/cron/keeper`):**
+   * Endpoint Next.js: `GET /api/cron/keeper` (skonfigurowany w `vercel.json` i kompatybilny z `cron-job.org`).
+   * Zmienne środowiskowe:
+     * `KEEPER_PRIVATE_KEY` — klucz prywatny (tablica bajtów JSON lub Base58) portfela opłacającego gaz transakcji devnet.
+     * `CRON_SECRET` — opcjonalny token zabezpieczający endpoint przed niepowołanym wywołaniem (`Authorization: Bearer <token>`).
+   * Automatycznie sprawdza wszystkie otwarte i zablokowane rynki, wykonując odpowiednie przejścia stanów on-chain.
+

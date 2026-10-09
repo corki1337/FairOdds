@@ -11,32 +11,32 @@
  */
 import * as fs from "fs";
 import * as path from "path";
-import type { Fixture } from "../app/src/lib/fixtures";
 import { context, createMarketWithFeed, fetchMarket, pdas, ROOT, sleep } from "./common";
+import { readCatalog, secondaryFor } from "./sources/catalog";
 
 /** Betting must close before kickoff, and markets need a future start to be created at all. */
 const MIN_LEAD_SECONDS = 10 * 60;
 
 async function main() {
   const ctx = context();
-  const catalog = JSON.parse(
-    fs.readFileSync(path.join(ROOT, "app", "src", "data", "fixtures.json"), "utf8")
-  ) as { fixtures: Fixture[] };
+  const catalog = readCatalog();
 
   const now = Math.floor(Date.now() / 1000);
   const argIds = process.argv.slice(2).map(Number).filter((n) => !Number.isNaN(n));
   const count = Number(process.env.COUNT || 8);
   const windowMins = Number(process.env.RESOLVE_WINDOW_MINS || 2880);
 
-  const selected = argIds.length
-    ? catalog.fixtures.filter((f) => argIds.includes(f.id))
-    : catalog.fixtures
-        .filter((f) => !f.finished && f.startTime > now + MIN_LEAD_SECONDS)
-        .sort((a, b) => a.startTime - b.startTime)
-        .slice(0, count);
-  if (!selected.length) throw new Error("No fixtures matched.");
+  const selected = (
+    argIds.length
+      ? catalog.fixtures.filter((f) => argIds.includes(f.id))
+      : catalog.fixtures
+          .filter((f) => !f.finished && f.startTime > now + MIN_LEAD_SECONDS)
+          .sort((a, b) => a.startTime - b.startTime)
+          .slice(0, count)
+  ).filter((f) => f.marketable);
+  if (!selected.length) throw new Error("No marketable fixtures matched.");
 
-  const created: { matchId: string; market: string; feed: string }[] = [];
+  const created: { matchId: string; market: string; feed: string; secondaryFeed?: string }[] = [];
   console.log("Admin:", ctx.admin.publicKey.toBase58());
 
   for (const f of selected) {
@@ -62,12 +62,22 @@ async function main() {
       start: f.startTime,
       end: f.endTime,
       resolveDeadline: f.endTime + windowMins * 60,
+      secondary: secondaryFor(f),
     });
-    console.log("Created", f.id, `${f.teamA} vs ${f.teamB}`, "feed", res.feed.toBase58(), res.sig);
+    console.log(
+      "Created",
+      f.id,
+      `${f.teamA} vs ${f.teamB}`,
+      "feed",
+      res.feed.toBase58(),
+      res.secondaryFeed ? `+ second feed ${res.secondaryFeed.toBase58()}` : "",
+      res.sig
+    );
     created.push({
       matchId: String(f.id),
       market: res.market.toBase58(),
       feed: res.feed.toBase58(),
+      secondaryFeed: res.secondaryFeed?.toBase58(),
     });
     await sleep(800);
   }

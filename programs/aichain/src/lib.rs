@@ -43,6 +43,14 @@ pub mod aichain {
         )
     }
 
+    pub fn attach_secondary_feed(
+        ctx: Context<AttachSecondaryFeed>,
+        source: u8,
+        source_ref: u64,
+    ) -> Result<()> {
+        instructions::attach_secondary_feed::handler(ctx, source, source_ref)
+    }
+
     pub fn place_bet(ctx: Context<PlaceBet>, amount: u64, team: u8) -> Result<()> {
         instructions::place_bet::handler(ctx, amount, team)
     }

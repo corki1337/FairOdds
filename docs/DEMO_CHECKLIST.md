@@ -1,6 +1,6 @@
 # FairOdds — Demo checklist
 
-Scenariusz mówiony i slajdy: [`NARRACJA.md`](NARRACJA.md). Co się dzieje w kodzie: [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md).
+Slajdy: [`../presentation/slides.html`](../presentation/slides.html). Co się dzieje w kodzie: [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md). Plan: [`PLAN.md`](PLAN.md).
 
 ## Before stage
 
