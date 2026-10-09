@@ -18,16 +18,48 @@ import {
   TransactionInstruction,
   AddressLookupTableAccount,
 } from "@solana/web3.js";
-import { eventUrl } from "./fixtures";
+import { eventUrl, UNMARKETABLE_ID_OFFSET } from "./fixtures";
 
 export const SB_PROGRAM_ID = new PublicKey("Aio4gaXjXzJNVLtzwtNVmSqGKpANtXhybbkhtAC94ji2");
 export const SB_QUEUE = new PublicKey("EYiAmGSdsQTuCw413V5BzaruWuCCSDgTPtBGvLkXHbe7");
 export const CROSSBAR_URL =
   process.env.NEXT_PUBLIC_CROSSBAR_URL || "https://crossbar.switchboardlabs.xyz";
 export const OPENLIGADB_BASE = "https://api.openligadb.de";
+export const PANDASCORE_BASE = "https://api.pandascore.co";
 
 /** Matches `SOURCE_*` in programs/aichain/src/state.rs. */
 export const SOURCE_OPENLIGADB = 1;
+
+/**
+ * `teamA_score - teamB_score` (maps won) for one PandaScore esports series.
+ * The path checks `winner_id != null` so an unfinished match yields no value at all.
+ */
+export function pandaScoreDiffJobs(
+  pandaMatchId: number | bigint | string,
+  token = process.env.NEXT_PUBLIC_PANDASCORE_TOKEN ||
+    process.env.PANDASCORE_TOKEN ||
+    "xkUsALXPNoiEDE_vaByyLM4X6HzCZNszQj-nvr4x90yq8O4bpRE"
+): OracleJob[] {
+  const url = `${PANDASCORE_BASE}/matches/${pandaMatchId}?token=${token}`;
+  return [
+    OracleJob.fromObject({
+      tasks: [
+        { httpTask: { url } },
+        { jsonParseTask: { path: "$[?(@.winner_id != null)].results[0].score" } },
+        {
+          subtractTask: {
+            job: {
+              tasks: [
+                { httpTask: { url } },
+                { jsonParseTask: { path: "$[?(@.winner_id != null)].results[1].score" } },
+              ],
+            },
+          },
+        },
+      ],
+    }),
+  ];
+}
 
 /**
  * `home_score - away_score` for one fixture. Scores are strings in the provider's JSON and
@@ -35,6 +67,11 @@ export const SOURCE_OPENLIGADB = 1;
  * oracles simply cannot report anything early.
  */
 export function scoreDiffJobs(matchId: number | bigint | string): OracleJob[] {
+  const idNum = BigInt(matchId.toString());
+  if (idNum >= BigInt(UNMARKETABLE_ID_OFFSET)) {
+    const pandaId = (idNum - BigInt(UNMARKETABLE_ID_OFFSET)).toString();
+    return pandaScoreDiffJobs(pandaId);
+  }
   const url = eventUrl(String(matchId));
   return [
     OracleJob.fromObject({

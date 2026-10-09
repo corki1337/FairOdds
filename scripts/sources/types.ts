@@ -17,6 +17,8 @@ export type SourceFixture = {
   startTime: number;
   status: SourceStatus;
   final: Score | null;
+  /** Series format if applicable, e.g. "Bo1", "Bo3", "Bo5" */
+  format?: string;
   /** Ids of the same event in other providers, when the provider publishes them itself. */
   refs?: Partial<Record<SourceId, string>>;
 };

@@ -236,9 +236,16 @@ export default function AdminPage() {
               onClick={() => applyFixture(f)}
               className="rounded-lg border border-white/10 bg-ink/60 px-3 py-2 text-left text-sm transition hover:border-accent/40"
             >
-              <span className="text-xs uppercase text-mute">
-                {CATEGORY_LABELS[f.category]} · {f.league}
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs uppercase text-mute">
+                  {CATEGORY_LABELS[f.category]} · {f.league}
+                </span>
+                {f.format && (
+                  <span className="shrink-0 rounded border border-accent/40 bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">
+                    {f.format}
+                  </span>
+                )}
+              </div>
               <div className="font-display text-base">
                 {f.teamA} vs {f.teamB}
               </div>

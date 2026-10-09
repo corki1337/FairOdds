@@ -65,6 +65,7 @@ function MatchRow({
   statusLabel,
   href,
   accent,
+  format,
 }: {
   timeLabel: string;
   league: string;
@@ -75,6 +76,7 @@ function MatchRow({
   statusLabel: string;
   href?: string;
   accent?: boolean;
+  format?: string;
 }) {
   const className = `grid grid-cols-1 gap-2 px-4 py-3 transition md:grid-cols-[72px_1fr_88px_88px_110px] md:items-center md:gap-2 ${
     href ? "hover:bg-white/[0.06] cursor-pointer" : "opacity-60"
@@ -93,13 +95,30 @@ function MatchRow({
         <div className="truncate">{league}</div>
       </div>
       <div className="min-w-0">
-        <div className="truncate font-display text-base">{title}</div>
+        <div className="flex items-center gap-2">
+          <span className="truncate font-display text-base">{title}</span>
+          {format && (
+            <span className="shrink-0 rounded border border-accent/40 bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">
+              {format}
+            </span>
+          )}
+        </div>
         <div className="truncate text-[11px] text-mute">{subtitle}</div>
       </div>
       {cell(odds ? odds.a : null)}
       {cell(odds ? odds.b : null)}
       <div className="text-right text-[10px] uppercase tracking-wide">
-        <span className={href ? "text-accent" : "text-mute"}>{statusLabel}</span>
+        <span
+          className={
+            href
+              ? statusLabel.includes("trwa") || statusLabel.includes("W grze")
+                ? "font-semibold text-amber-400"
+                : "text-accent"
+              : "text-mute"
+          }
+        >
+          {statusLabel}
+        </span>
       </div>
     </>
   );
@@ -178,9 +197,15 @@ export default function HomePage() {
       .sort((a, b) => a.startTime - b.startTime);
   }, [markets]);
 
-  const otherMarkets = useMemo(() => {
+  const liveMarkets = useMemo(() => {
     return [...markets]
-      .filter((m) => m.status !== "open")
+      .filter((m) => m.status === "locked")
+      .sort((a, b) => a.startTime - b.startTime);
+  }, [markets]);
+
+  const resolvedMarkets = useMemo(() => {
+    return [...markets]
+      .filter((m) => m.status === "resolved" || m.status === "cancelled")
       .sort((a, b) => b.startTime - a.startTime);
   }, [markets]);
 
@@ -200,7 +225,7 @@ export default function HomePage() {
         <p className="max-w-2xl text-sm text-mute">
           Zakłady przyjmujemy do pierwszego gwizdka. Kursy wynikają wyłącznie z podziału puli, a
           wynik meczu zaciągają oracle Switchboard prosto z{" "}
-          <span className="text-white">TheSportsDB</span> — nasz serwer nie bierze udziału w
+          <span className="text-white">TheSportsDB</span> oraz <span className="text-white">PandaScore</span> — nasz serwer nie bierze udziału w
           rozliczeniu. Remis = zwrot stawek.
         </p>
       </header>
@@ -213,10 +238,12 @@ export default function HomePage() {
             <p className="text-xs text-mute">
               {marketsLoading
                 ? "Ładowanie z Devnet…"
-                : openMarkets.length > 0
-                  ? `${openMarkets.length} otwartych do kickoffu — prematch, nie live in-play`
+                : openMarkets.length > 0 || liveMarkets.length > 0
+                  ? `${openMarkets.length} do obstawienia przed kickoffem${
+                      liveMarkets.length > 0 ? ` · ${liveMarkets.length} w grze (kapitał w Yield Park)` : ""
+                    }`
                   : markets.length > 0
-                    ? "Brak otwartych — po starcie meczu betting się zamyka (lock). Admin: nowe rynki."
+                    ? "Brak otwartych rynków (wszystkie rozliczone). Admin: nowe rynki."
                     : "Brak rynków on-chain. Admin → fixture → Initialize, albo scripts/create-from-fixture.ts"}
             </p>
           </div>
@@ -227,7 +254,7 @@ export default function HomePage() {
 
         <div className="overflow-hidden rounded-xl border border-accent/30">
           <div className="hidden grid-cols-[72px_1fr_88px_88px_110px] gap-2 border-b border-white/10 bg-ink/80 px-4 py-2 text-[10px] uppercase tracking-wider text-mute md:grid">
-            <span>Lock</span>
+            <span>Status</span>
             <span>Mecz</span>
             <span className="text-center">1</span>
             <span className="text-center">2</span>
@@ -244,8 +271,9 @@ export default function HomePage() {
                   href={`/markets/${m.matchId}`}
                   timeLabel={formatKickoff(m.startTime)}
                   league={fix?.league || "on-chain"}
+                  format={fix?.format}
                   title={`${m.teamA} – ${m.teamB}`}
-                  subtitle={`#${m.matchId} · pula ${total.toFixed(0)} USDC · wynik: TheSportsDB`}
+                  subtitle={`#${m.matchId} · pula ${total.toFixed(0)} USDC · zakłady otwarte`}
                   odds={{
                     a: impliedOdds(m.poolA * 1e6 || 1, total * 1e6 || 1),
                     b: impliedOdds(m.poolB * 1e6 || 1, total * 1e6 || 1),
@@ -254,7 +282,27 @@ export default function HomePage() {
                 />
               );
             })}
-            {!marketsLoading && openMarkets.length === 0 && (
+            {liveMarkets.map((m) => {
+              const total = m.poolA + m.poolB;
+              const fix = catalogRows.find((f) => f.matchId === m.matchId);
+              return (
+                <MatchRow
+                  key={m.publicKey}
+                  href={`/markets/${m.matchId}`}
+                  timeLabel="W grze"
+                  league={fix?.league || "on-chain"}
+                  format={fix?.format}
+                  title={`${m.teamA} – ${m.teamB}`}
+                  subtitle={`#${m.matchId} · pula ${total.toFixed(0)} USDC · trwa mecz (kapitał w Yield Park)`}
+                  odds={{
+                    a: impliedOdds(m.poolA * 1e6 || 1, total * 1e6 || 1),
+                    b: impliedOdds(m.poolB * 1e6 || 1, total * 1e6 || 1),
+                  }}
+                  statusLabel="Mecz trwa"
+                />
+              );
+            })}
+            {!marketsLoading && openMarkets.length === 0 && liveMarkets.length === 0 && (
               <li className="px-4 py-8 text-center text-sm text-mute">
                 Nie ma otwartego rynku do obstawienia.{" "}
                 <Link href="/admin" className="text-accent underline">
@@ -265,20 +313,22 @@ export default function HomePage() {
           </ul>
         </div>
 
-        {otherMarkets.length > 0 && (
+        {resolvedMarkets.length > 0 && (
           <details className="rounded-xl border border-white/10 bg-panel/40">
             <summary className="cursor-pointer px-4 py-3 text-sm text-mute">
-              Zamknięte / rozliczone ({otherMarkets.length})
+              Rozliczone / archiwalne ({resolvedMarkets.length})
             </summary>
             <ul className="divide-y divide-white/5 border-t border-white/10">
-              {otherMarkets.map((m) => {
+              {resolvedMarkets.map((m) => {
                 const total = m.poolA + m.poolB;
+                const fix = catalogRows.find((f) => f.matchId === m.matchId);
                 return (
                   <MatchRow
                     key={m.publicKey}
                     href={`/markets/${m.matchId}`}
                     timeLabel={formatKickoff(m.startTime)}
-                    league="on-chain"
+                    league={fix?.league || "on-chain"}
+                    format={fix?.format}
                     title={`${m.teamA} – ${m.teamB}`}
                     subtitle={`#${m.matchId} · ${m.status}`}
                     odds={{
@@ -433,6 +483,7 @@ export default function HomePage() {
                         accent={!!onChain}
                         timeLabel={formatKickoff(f.startTime)}
                         league={f.league}
+                        format={f.format}
                         title={`${f.teamA} – ${f.teamB}`}
                         subtitle={[
                           f.marketable ? `#${f.matchId}` : `tylko ${sourceNames(f)}`,

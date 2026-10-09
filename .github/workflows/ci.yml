@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, feedfix]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 1. Oracle & Data Source Unit Tests (Consensus, Mappings, PandaScore, TheSportsDB)
+  sources-tests:
+    name: Oracle & Sources Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run Sources & Consensus Tests
+        run: npm run test:sources
+
+  # 2. Frontend Validation (TypeScript, Linting, Next.js Production Build)
+  frontend:
+    name: Frontend Typecheck & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install app dependencies
+        working-directory: app
+        run: npm ci --legacy-peer-deps
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: |
+            app/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('app/package-lock.json') }}-${{ hashFiles('app/src/**.[jt]s', 'app/src/**.[jt]sx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('app/package-lock.json') }}-
+
+      - name: Typecheck Next.js
+        working-directory: app
+        run: npx tsc --noEmit
+
+      - name: Build Next.js
+        working-directory: app
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
+  # 3. Rust Smart Contracts (Cargo Check & Yield Park Tests)
+  rust-contracts:
+    name: Solana Programs Check & Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Check aichain program
+        run: cargo check --manifest-path programs/aichain/Cargo.toml --lib
+
+      - name: Check yield_park program
+        run: cargo check --manifest-path programs/yield_park/Cargo.toml --lib
+
+      - name: Test yield_park lib
+        run: cargo test --manifest-path programs/yield_park/Cargo.toml --lib
