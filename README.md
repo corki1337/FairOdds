@@ -1,5 +1,6 @@
 # FairOdds Protocol
 
+
 **Bookmaker Without the Bookie.** Trustless, zero-vig pari-mutuel prediction markets and yield-bearing settlement on Solana.
 
 Built for the **Colosseum Hackathon (Crypto World's Fair)** — *DeFi Track* · In partnership with **Superteam**.
