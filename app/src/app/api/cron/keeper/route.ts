@@ -17,7 +17,15 @@ async function handle(req: NextRequest) {
   if (!authorized(req))
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
-    return NextResponse.json(await runKeeper());
+    const limitParam = req.nextUrl.searchParams.get("limit");
+    const timeoutParam = req.nextUrl.searchParams.get("timeout");
+    const maxActions = limitParam ? Math.max(1, parseInt(limitParam, 10)) : 3;
+    const maxDurationMs = timeoutParam
+      ? Math.max(3000, parseInt(timeoutParam, 10))
+      : 15000;
+    return NextResponse.json(
+      await runKeeper(undefined, maxDurationMs, maxActions),
+    );
   } catch (err: any) {
     console.error("Keeper run error:", err);
     return NextResponse.json(
