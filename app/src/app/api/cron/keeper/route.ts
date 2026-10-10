@@ -5,7 +5,9 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 function authorized(req: NextRequest) {
   const secret = process.env.CRON_SECRET?.trim();
-  const token = req.headers.get("authorization")?.replace(/^Bearer /, "");
+  const token =
+    req.headers.get("authorization")?.replace(/^Bearer /, "")?.trim() ??
+    req.nextUrl.searchParams.get("secret")?.trim();
   if (!secret || !token) return false;
   const a = Buffer.from(secret),
     b = Buffer.from(token);

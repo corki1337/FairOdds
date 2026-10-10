@@ -13,17 +13,19 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
     const { id } = await ctx.params;
     const x = await match(id);
     const m = await describeMatch(x.market, x.m, x.program);
+    const oddsA = m.odds[0] ? `${m.odds[0]}x` : "pool";
+    const oddsB = m.odds[1] ? `${m.odds[1]}x` : "pool";
     return json({
       type: "action",
       icon: `${req.nextUrl.origin}/icon.png`,
       title: `${m.teams[0]} vs ${m.teams[1]}`,
       label: "Place bet",
-      description: `Devnet demo-USDC. Pools: ${m.pools.join(" / ")}. ${m.feeBps / 100}% fee on positive profit only. Odds change until kickoff.`,
+      description: `Pools: ${m.pools[0]} vs ${m.pools[1]} USDC (~${oddsA} vs ~${oddsB}). Pari-Mutuel: final odds determine at kickoff based on total stakes. 0.5% fee on net profit only.`,
       disabled: m.status !== "open" || m.secondsToKickoff === 0,
       links: {
         actions: m.teams.map((team, side) => ({
           type: "transaction",
-          label: team,
+          label: `${team} (${side === 0 ? oddsA : oddsB})`,
           href: `/api/actions/market/${id}?team=${side}&amount={amount}`,
           parameters: [
             {
