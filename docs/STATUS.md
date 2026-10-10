@@ -85,8 +85,8 @@ npm run keeper             # albo zamiast powyższych: katalog + rynki + crank w
 
 ## Jeszcze po naszej stronie (nie blokuje demo)
 
-- [ ] Publiczny hosting UI (Vercel) — nie jest już w path settlement
-- [ ] Prywatny RPC (publiczny devnet 429)
+- [x] Publiczny hosting UI (Vercel) — wdrożone i aktywne
+- [ ] Prywatny RPC (publiczny devnet 429) — mechanizm retry w kodzie gotowy, opcjonalnie podpiąć klucz Helius/QuickNode w Vercel
 - [ ] Dwa portfele Phantom na żywo
 - [ ] `scripts/freeze-upgrade-authority.ts --yes-i-understand` — nieodwracalne, tylko za zgodą
 - [ ] Publiczne repo / wideo ≤3 min
