@@ -1,28 +1,13 @@
-# FairOdds — Demo checklist
+# English demo - target 2 minutes 45 seconds
 
-Slajdy: [`../presentation/slides.html`](../presentation/slides.html). Co się dzieje w kodzie: [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md). Plan: [`PLAN.md`](PLAN.md).
+Before recording: upgrade both programs, deploy HTTPS, fund a devnet wallet and keeper, mint demo-USDC, prepare/review historical champion + scorer manifests, create the season with two immutable feeds. Confirm current Explorer links. Rotate old provider secrets. Never show key files, env values or terminal history containing credentials.
 
-## Before stage
+- **0:00-0:20**: "FairOdds puts sports bets into transparent shared pools on Solana. Players keep signing control. New match markets charge half a percent of positive profit; season markets charge no protocol fee."
+- **0:20-0:50**: Show the English match board, kickoff, both pools and a wallet-signed stake. "These are demo tokens. Odds change until betting closes." Show the empty-side waiting state rather than a fabricated multiplier.
+- **0:50-1:15**: Show the season participant table, stake and explicit historical-demo notice. "This completed season demonstrates settlement. Each deposit parks immediately in our funded demo reserve. The full principal goes to winners; reserve surplus goes to treasury."
+- **1:15-1:50**: Show pinned two-feed addresses, result consensus and the actual confirmed settlement. "Independent providers must agree after the season is final. A missing result eventually unlocks refunds."
+- **1:50-2:15**: Claim in the real wallet, open Explorer transaction and balances. Show the disabled already-claimed control. Never present a mocked confirmation as a live transaction.
+- **2:15-2:35**: Show the deployed Blink in a devnet client, then REST response and the local-signing bot. "Developers and agents can participate through the same noncustodial API."
+- **2:35-2:45**: Show the mobile layout and end with devnet link/repository. "This is a devnet prototype. Production lending is our next separately reviewed integration."
 
-- [ ] Devnet SOL on admin + 2 demo wallets
-- [ ] `app/.env.local` loaded (mint + global PDA)
-- [ ] `cd app && npm run dev`; Phantom on **Devnet**
-- [ ] Open prematch market with both sides funded (see `docs/STATUS.md`)
-- [ ] Faucet button in the nav works (1000 demo-USDC / 24h)
-- [ ] Explorer tabs ready (program id, last tx)
-
-## Live path
-
-1. Connect wallet → **Faucet** if empty
-2. Wallet A bets home; Wallet B bets away → two signatures, pool odds move
-3. At kickoff **Lock** → inner CPI to `yield_park`
-4. After the match **Resolve** — Switchboard pulls TheSportsDB (`home − away`). No admin result.
-5. Winner **Claim**. Draw / missed deadline → **Refund**
-6. 30s: DESIGN slide — no bookmaker in settlement
-
-## Failure modes to narrate
-
-- Match not finished → oracle has no value, resolve fails (good)
-- Wrong feed / hash → tx fails (good)
-- Draw (`diff == 0`) → `CANCEL_DRAW`, 100% refund
-- Resolve deadline passed → `cancel_expired`, 100% refund
+Capture a successful run before presenting. If an oracle/API stalls, use the recorded real run with its Explorer links, or honestly show the refund path. Submission URL, public repository approval and video hosting remain owner actions. `presentation/slides.html`, `slides.md` and the generated PDF use the same claims.

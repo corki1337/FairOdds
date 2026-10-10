@@ -1,0 +1,20 @@
+{
+  "base": "http://localhost:3102",
+  "checkedAt": "2026-10-10T14:05:38.034Z",
+  "marketId": "2489129",
+  "checks": [
+    "live canonical market list",
+    "/api/v1/markets?limit=0 rejects invalid / unauthorized requests",
+    "/api/v1/markets/not-an-id rejects invalid / unauthorized requests",
+    "/api/cron/keeper rejects invalid / unauthorized requests",
+    "Actions CORS and public mapping",
+    "input validation and body limit",
+    "English home without wallet",
+    "Polish persists across navigation",
+    "live match date and disabled no-wallet claim",
+    "mobile layout does not overflow",
+    "season participant table and single stake field"
+  ],
+  "pageErrors": [],
+  "note": "Screenshots use actual devnet reads. Season table check uses an isolated test fixture; no wallet transaction was signed."
+}

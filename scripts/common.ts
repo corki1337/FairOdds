@@ -1,6 +1,10 @@
 /**
  * Shared helpers for devnet scripts (v2 PDAs, Switchboard-pinned markets, cranks).
  */
+import { loadEnv } from "./sources/env";
+loadEnv();
+import { crankOne } from "../app/src/lib/keeper";
+import { createServerWallet } from "../app/src/lib/serverWallet";
 import * as anchor from "@coral-xyz/anchor";
 import { Idl, Program } from "@coral-xyz/anchor";
 import {
@@ -38,7 +42,10 @@ const V = Buffer.from("v2");
 
 export function loadIdl(name: string): Idl {
   return JSON.parse(
-    fs.readFileSync(path.join(ROOT, "app", "src", "lib", "idl", `${name}.json`), "utf8")
+    fs.readFileSync(
+      path.join(ROOT, "app", "src", "lib", "idl", `${name}.json`),
+      "utf8",
+    ),
   ) as Idl;
 }
 
@@ -58,7 +65,9 @@ export type DeployConfig = {
 };
 
 export function loadConfig(): DeployConfig {
-  return JSON.parse(fs.readFileSync(path.join(ROOT, "deploy-config.json"), "utf8"));
+  return JSON.parse(
+    fs.readFileSync(path.join(ROOT, "deploy-config.json"), "utf8"),
+  );
 }
 
 export function sleep(ms: number) {
@@ -82,34 +91,61 @@ export function u64(n: number | bigint | anchor.BN): Buffer {
 }
 
 export const pdas = {
-  global: (pid: PublicKey) => PublicKey.findProgramAddressSync([V, Buffer.from("global")], pid)[0],
+  global: (pid: PublicKey) =>
+    PublicKey.findProgramAddressSync([V, Buffer.from("global")], pid)[0],
   treasury: (pid: PublicKey, global: PublicKey) =>
-    PublicKey.findProgramAddressSync([V, Buffer.from("treasury"), global.toBuffer()], pid)[0],
+    PublicKey.findProgramAddressSync(
+      [V, Buffer.from("treasury"), global.toBuffer()],
+      pid,
+    )[0],
   feedLock: (pid: PublicKey) =>
     PublicKey.findProgramAddressSync([V, Buffer.from("feed-lock")], pid)[0],
   mintAuthority: (pid: PublicKey) =>
     PublicKey.findProgramAddressSync([V, Buffer.from("mint-auth")], pid)[0],
   faucetReceipt: (pid: PublicKey, user: PublicKey) =>
-    PublicKey.findProgramAddressSync([V, Buffer.from("faucet"), user.toBuffer()], pid)[0],
+    PublicKey.findProgramAddressSync(
+      [V, Buffer.from("faucet"), user.toBuffer()],
+      pid,
+    )[0],
   market: (pid: PublicKey, matchId: number | bigint | anchor.BN) =>
-    PublicKey.findProgramAddressSync([V, Buffer.from("market"), u64(matchId)], pid)[0],
+    PublicKey.findProgramAddressSync(
+      [V, Buffer.from("market"), u64(matchId)],
+      pid,
+    )[0],
   vault: (pid: PublicKey, market: PublicKey) =>
-    PublicKey.findProgramAddressSync([V, Buffer.from("vault"), market.toBuffer()], pid)[0],
+    PublicKey.findProgramAddressSync(
+      [V, Buffer.from("vault"), market.toBuffer()],
+      pid,
+    )[0],
+  policy: (pid: PublicKey, market: PublicKey) =>
+    PublicKey.findProgramAddressSync(
+      [V, Buffer.from("policy"), market.toBuffer()],
+      pid,
+    )[0],
   secondary: (pid: PublicKey, market: PublicKey) =>
-    PublicKey.findProgramAddressSync([V, Buffer.from("oracle2"), market.toBuffer()], pid)[0],
+    PublicKey.findProgramAddressSync(
+      [V, Buffer.from("oracle2"), market.toBuffer()],
+      pid,
+    )[0],
   receipt: (pid: PublicKey, market: PublicKey, user: PublicKey) =>
     PublicKey.findProgramAddressSync(
       [V, Buffer.from("receipt"), market.toBuffer(), user.toBuffer()],
-      pid
+      pid,
     )[0],
   park: (ypid: PublicKey, mint: PublicKey) =>
-    PublicKey.findProgramAddressSync([Buffer.from("park"), mint.toBuffer()], ypid)[0],
+    PublicKey.findProgramAddressSync(
+      [Buffer.from("park"), mint.toBuffer()],
+      ypid,
+    )[0],
   parkVault: (ypid: PublicKey, park: PublicKey) =>
-    PublicKey.findProgramAddressSync([Buffer.from("park-vault"), park.toBuffer()], ypid)[0],
+    PublicKey.findProgramAddressSync(
+      [Buffer.from("park-vault"), park.toBuffer()],
+      ypid,
+    )[0],
   position: (ypid: PublicKey, park: PublicKey, owner: PublicKey) =>
     PublicKey.findProgramAddressSync(
       [Buffer.from("position"), park.toBuffer(), owner.toBuffer()],
-      ypid
+      ypid,
     )[0],
 };
 
@@ -130,7 +166,7 @@ export function context(): Ctx {
       process.env.USERPROFILE || process.env.HOME || "",
       ".config",
       "solana",
-      "id.json"
+      "id.json",
     );
     if (fs.existsSync(defaultWallet)) {
       process.env.ANCHOR_WALLET = defaultWallet;
@@ -156,13 +192,14 @@ export async function sendV0(
   ixs: TransactionInstruction[],
   signers: Keypair[],
   luts: AddressLookupTableAccount[] = [],
-  units = 400_000
+  units = 400_000,
 ): Promise<string> {
   const conn = ctx.provider.connection;
   const payer = signers[0].publicKey;
   for (let attempt = 0; ; attempt++) {
     try {
-      const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
+      const { blockhash, lastValidBlockHeight } =
+        await conn.getLatestBlockhash("confirmed");
       const msg = new TransactionMessage({
         payerKey: payer,
         recentBlockhash: blockhash,
@@ -175,19 +212,23 @@ export async function sendV0(
       }).compileToV0Message(luts);
       const tx = new VersionedTransaction(msg);
       tx.sign(signers);
-      const sig = await conn.sendTransaction(tx, { skipPreflight: false, maxRetries: 10 });
+      const sig = await conn.sendTransaction(tx, {
+        skipPreflight: false,
+        maxRetries: 10,
+      });
       const res = await conn.confirmTransaction(
         { signature: sig, blockhash, lastValidBlockHeight },
-        "confirmed"
+        "confirmed",
       );
-      if (res.value.err) throw new Error(`tx ${sig} failed: ${JSON.stringify(res.value.err)}`);
+      if (res.value.err)
+        throw new Error(`tx ${sig} failed: ${JSON.stringify(res.value.err)}`);
       return sig;
     } catch (e) {
       const msg = String((e as Error).message ?? e);
       if (
         attempt < 4 &&
         /429|Too Many|blockhash|block height exceeded|timed out|ECONNRESET|not a recent slot/i.test(
-          msg
+          msg,
         )
       ) {
         await sleep(1500 * (attempt + 1));
@@ -235,8 +276,14 @@ export async function createMarketWithFeed(
     end: number;
     resolveDeadline: number;
     secondary?: SecondarySpec;
-  }
-): Promise<{ market: PublicKey; feed: PublicKey; secondaryFeed?: PublicKey; sig: string }> {
+    legacy?: boolean;
+  },
+): Promise<{
+  market: PublicKey;
+  feed: PublicKey;
+  secondaryFeed?: PublicKey;
+  sig: string;
+}> {
   const pid = ctx.aichain.programId;
   const global = new PublicKey(ctx.config.globalPda);
   const feedLock = pdas.feedLock(pid);
@@ -252,7 +299,7 @@ export async function createMarketWithFeed(
         new anchor.BN(p.end),
         new anchor.BN(p.resolveDeadline),
         padName(p.teamA),
-        padName(p.teamB)
+        padName(p.teamB),
       )
       .accounts({
         authority: payer,
@@ -268,6 +315,20 @@ export async function createMarketWithFeed(
       })
       .instruction();
 
+  const policyIxs = p.legacy
+    ? []
+    : [
+        await ctx.aichain.methods
+          .attachMarketPolicy()
+          .accounts({
+            authority: payer,
+            global,
+            market,
+            policy: pdas.policy(pid, market),
+            systemProgram: SystemProgram.programId,
+          })
+          .instruction(),
+      ];
   const primaryJobs = scoreDiffJobs(p.matchId);
   if (!p.secondary) {
     return withFreshSlot(async () => {
@@ -277,7 +338,11 @@ export async function createMarketWithFeed(
         payer,
         feedLock,
       });
-      const sig = await sendV0(ctx, [...ixs, await initMarketIx(feed)], [ctx.admin, feedKeypair]);
+      const sig = await sendV0(
+        ctx,
+        [...ixs, await initMarketIx(feed), ...policyIxs],
+        [ctx.admin, feedKeypair],
+      );
       return { market, feed, sig };
     });
   }
@@ -285,14 +350,19 @@ export async function createMarketWithFeed(
   const spec = p.secondary;
   const createFeed = (jobs: ReturnType<typeof scoreDiffJobs>, name: string) =>
     withFreshSlot(async () => {
-      const { feedKeypair, feed, ixs } = await buildCreateFeedIxs(sb, { jobs, name, payer, feedLock });
+      const { feedKeypair, feed, ixs } = await buildCreateFeedIxs(sb, {
+        jobs,
+        name,
+        payer,
+        feedLock,
+      });
       await sendV0(ctx, ixs, [ctx.admin, feedKeypair]);
       return feed;
     });
   const feed = await createFeed(primaryJobs, `fairodds-${p.matchId}`);
   const secondaryFeed = await createFeed(
     secondaryJobs(spec.source, BigInt(spec.sourceRef)),
-    `fairodds-${p.matchId}-s${spec.source}`
+    `fairodds-${p.matchId}-s${spec.source}`,
   );
   const attachIx = await ctx.aichain.methods
     .attachSecondaryFeed(spec.source, new anchor.BN(spec.sourceRef.toString()))
@@ -306,17 +376,34 @@ export async function createMarketWithFeed(
       systemProgram: SystemProgram.programId,
     })
     .instruction();
-  const sig = await sendV0(ctx, [await initMarketIx(feed), attachIx], [ctx.admin]);
+  const sig = await sendV0(
+    ctx,
+    [await initMarketIx(feed), ...policyIxs, attachIx],
+    [ctx.admin],
+  );
   return { market, feed, secondaryFeed, sig };
 }
 
-export type SecondaryInfo = { pda: PublicKey; feed: PublicKey; source: number; sourceRef: bigint };
+export type SecondaryInfo = {
+  pda: PublicKey;
+  feed: PublicKey;
+  source: number;
+  sourceRef: bigint;
+};
 
-export async function fetchSecondary(ctx: Ctx, market: PublicKey): Promise<SecondaryInfo | null> {
+export async function fetchSecondary(
+  ctx: Ctx,
+  market: PublicKey,
+): Promise<SecondaryInfo | null> {
   const pda = pdas.secondary(ctx.aichain.programId, market);
   const info = await ctx.provider.connection.getAccountInfo(pda, "confirmed");
-  const s = info && info.owner.equals(ctx.aichain.programId) ? decodeSecondaryOracle(info.data) : null;
-  return s ? { pda, feed: s.feed, source: s.source, sourceRef: s.sourceRef } : null;
+  const s =
+    info && info.owner.equals(ctx.aichain.programId)
+      ? decodeSecondaryOracle(info.data)
+      : null;
+  return s
+    ? { pda, feed: s.feed, source: s.source, sourceRef: s.sourceRef }
+    : null;
 }
 
 function yieldAccounts(ctx: Ctx, market: PublicKey) {
@@ -334,6 +421,7 @@ export async function lockIx(ctx: Ctx, market: PublicKey) {
   return ctx.aichain.methods
     .lockMarket()
     .accounts({
+      policy: pdas.policy(ctx.aichain.programId, market),
       crank: ctx.admin.publicKey,
       global: new PublicKey(ctx.config.globalPda),
       market,
@@ -350,7 +438,7 @@ export async function resolveIx(
   ctx: Ctx,
   market: PublicKey,
   feed: PublicKey,
-  secondaryFeed: PublicKey | null = null
+  secondaryFeed: PublicKey | null = null,
 ) {
   const pid = ctx.aichain.programId;
   return ctx.aichain.methods
@@ -392,13 +480,34 @@ export async function cancelExpiredIx(ctx: Ctx, market: PublicKey) {
  * Moves demo-USDC out of the admin's stash. The mint authority belongs to the faucet PDA
  * after setup, so scripts top wallets up by transfer rather than by minting.
  */
-export async function fundTokens(ctx: Ctx, owner: PublicKey, amount: bigint): Promise<PublicKey> {
+export async function fundTokens(
+  ctx: Ctx,
+  owner: PublicKey,
+  amount: bigint,
+): Promise<PublicKey> {
   const mint = new PublicKey(ctx.config.usdcMint);
   const conn = ctx.provider.connection;
-  const from = await getOrCreateAssociatedTokenAccount(conn, ctx.admin, mint, ctx.admin.publicKey);
-  const to = await getOrCreateAssociatedTokenAccount(conn, ctx.admin, mint, owner);
+  const from = await getOrCreateAssociatedTokenAccount(
+    conn,
+    ctx.admin,
+    mint,
+    ctx.admin.publicKey,
+  );
+  const to = await getOrCreateAssociatedTokenAccount(
+    conn,
+    ctx.admin,
+    mint,
+    owner,
+  );
   if (to.amount < amount) {
-    await transfer(conn, ctx.admin, from.address, to.address, ctx.admin, amount - to.amount);
+    await transfer(
+      conn,
+      ctx.admin,
+      from.address,
+      to.address,
+      ctx.admin,
+      amount - to.amount,
+    );
   }
   return to.address;
 }
@@ -406,7 +515,10 @@ export async function fundTokens(ctx: Ctx, owner: PublicKey, amount: bigint): Pr
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type MarketAccount = any;
 
-export async function fetchMarket(ctx: Ctx, market: PublicKey): Promise<MarketAccount | null> {
+export async function fetchMarket(
+  ctx: Ctx,
+  market: PublicKey,
+): Promise<MarketAccount | null> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (ctx.aichain.account as any).marketState.fetchNullable(market);
 }
@@ -423,10 +535,15 @@ async function feedUpdate(
   ctx: Ctx,
   feed: PublicKey,
   jobs: ReturnType<typeof scoreDiffJobs>,
-  notBefore: number
-): Promise<{ ixs: TransactionInstruction[]; luts: AddressLookupTableAccount[] } | null | string> {
+  notBefore: number,
+): Promise<
+  | { ixs: TransactionInstruction[]; luts: AddressLookupTableAccount[] }
+  | null
+  | string
+> {
   const info = await ctx.provider.connection.getAccountInfo(feed, "confirmed");
-  if (info && decodeFeedSubmissions(info.data, notBefore).values.length > 0) return null;
+  if (info && decodeFeedSubmissions(info.data, notBefore).values.length > 0)
+    return null;
   const upd = await buildFeedUpdateIxs(await switchboard(ctx), {
     feed,
     jobs,
@@ -438,7 +555,10 @@ async function feedUpdate(
 
 export type CrankOptions = {
   /** Called once the match is over and before any resolve; a string blocks resolve. */
-  guard?: (m: MarketAccount, secondary: SecondaryInfo | null) => Promise<string | null>;
+  guard?: (
+    m: MarketAccount,
+    secondary: SecondaryInfo | null,
+  ) => Promise<string | null>;
 };
 
 /**
@@ -449,39 +569,16 @@ export type CrankOptions = {
 export async function crankMarket(
   ctx: Ctx,
   market: PublicKey,
-  opts: CrankOptions = {}
+  opts: CrankOptions = {},
 ): Promise<string> {
-  const m = await fetchMarket(ctx, market);
-  if (!m) return "missing";
-  const status = statusOf(m);
-  if (status === "resolved" || status === "cancelled") return status;
-  const now = Math.floor(Date.now() / 1000);
-
-  if (now >= Number(m.resolveDeadline)) {
-    await sendV0(ctx, [await cancelExpiredIx(ctx, market)], [ctx.admin]);
-    return "cancelled (deadline)";
-  }
-  if (status === "open" && now >= Number(m.startTime)) {
-    await sendV0(ctx, [await lockIx(ctx, market)], [ctx.admin]);
-  }
-  const endTime = Number(m.endTime);
-  if (now < endTime) return `waiting for end (${endTime - now}s)`;
-
-  const secondary = await fetchSecondary(ctx, market);
-  const blocked = opts.guard ? await opts.guard(m, secondary) : null;
-  if (blocked) return `held: ${blocked}`;
-
-  if (secondary) {
-    const upd = await feedUpdate(ctx, secondary.feed, secondaryJobs(secondary.source, secondary.sourceRef), endTime);
-    if (typeof upd === "string") return `secondary oracle not ready: ${upd}`;
-    if (upd) await sendV0(ctx, upd.ixs, [ctx.admin], upd.luts, 400_000);
-  }
-
-  const feed = m.oracleFeed as PublicKey;
-  const upd = await feedUpdate(ctx, feed, scoreDiffJobs(BigInt(m.matchId.toString())), endTime);
-  if (typeof upd === "string") return `oracle not ready: ${upd}`;
-  const ixs = [...(upd?.ixs ?? []), await resolveIx(ctx, market, feed, secondary?.feed ?? null)];
-  await sendV0(ctx, ixs, [ctx.admin], upd?.luts ?? [], 600_000);
-  const after = await fetchMarket(ctx, market);
-  return after ? statusOf(after) : "unknown";
+  const result = await crankOne(
+    ctx.aichain,
+    ctx.provider.connection,
+    createServerWallet(ctx.admin),
+    market,
+    opts.guard
+      ? async (m) => opts.guard!(m, await fetchSecondary(ctx, market))
+      : undefined,
+  );
+  return result.reason ? `${result.action}: ${result.reason}` : result.action;
 }

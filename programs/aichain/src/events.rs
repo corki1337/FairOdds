@@ -50,3 +50,6 @@ pub struct BetRefunded {
     pub user: Pubkey,
     pub amount: u64,
 }
+
+#[event]
+pub struct ProtocolFeePaid { pub market: Pubkey, pub user: Pubkey, pub fee: u64 }

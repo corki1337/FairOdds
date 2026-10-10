@@ -1,92 +1,41 @@
-# STATUS — checklist projektu
+# FairOdds - stan implementacji
 
-Ostatnia aktualizacja: **2026-10-07**
+Aktualizacja: **2026-10-10**. Gałąź implementacji: `codex/implementation`. Plan zatwierdzony przez użytkownika, kod i materiały przygotowane; nowe binaria nie zostały przez tę sesję wdrożone na devnet.
 
-Produkt: **FairOdds** — bukmacher na prawdziwych meczach (TheSportsDB + Switchboard).  
-Programy on-chain nadal nazywają się `aichain` / `yield_park`.
+## Wykonane
 
-Dokumentacja zgłoszenia: [`../README.md`](../README.md), [`DESIGN.md`](DESIGN.md), [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md), [`PLAN.md`](PLAN.md).
+- Nowe mecze: osobne policy PDA, 50 bps wyłącznie od dodatniego zysku przy claim, brak fee od zwrotów. Stare rynki bez policy zachowują 0%; layout MarketState zachowany.
+- Jednostronne nowe mecze anulowane na kickoffie. Vault pozostaje dostępny dla pełnych zwrotów.
+- Osobne rynki mistrza ligi i króla strzelców: 2–32 uczestników, jedna pozycja/portfel, top-up, natychmiastowy park depozytu, 0% fee, pełna pula kapitału dla zwycięzców.
+- Dwa niezmienne feedy sezonowe, finalność ligi przed rozliczeniem, mapowanie provider IDs do ordinali. Rozbieżność czeka; deadline, remis strzelców lub pusta zwycięska pula umożliwiają zwrot. Jawnie oznaczone historyczne demo.
+- Dokładne kwoty u64, CPI yield, kontrola principal i rezerwy zaokrągleń z autoryzacją kanonicznego PDA. Zablokowany atak przez konto należące do programu, ale kontrolowane przez klucz atakującego.
+- REST API meczów/sezonów, API agentów, unsigned transakcje, starter bot z lokalnym podpisem, dokumentacja, devnet Actions/Blinks, CORS, body limit i rate limit.
+- Wspólny keeper CLI/hosting dla meczów i sezonów, deadline przed oracle, refetch po lock, rotacja pracy i rozdzielenie budżetu sezonów/meczów. Redis REST dla trwałych danych, limiterów i lease; lokalnie atomowe pliki.
+- Audyt dat: zachowanie offsetów, fallback do daty z timeTBD, blokada tworzenia rynków bez ustalonej godziny, dodatkowy fallback PandaScore. Nowe joby sprawdzają final status; PandaScore wynik przypisany do opponent ID.
+- Nowy UI listy, meczu, sezonu, admina, nawigacji i faucetu. PL/EN, układ mobilny, brak fałszywych kursów, receipt-aware claim/refund.
+- Next.js 16.4.0 / React 19, Node 24, zaktualizowane lockfile; aktualizacja CI dołączona jako `CI_UPDATE.patch` z powodu braku uprawnienia workflow w użytym logowaniu GitHub. IDL obu programów generowane z Rust, a nie ręcznie poprawiane.
+- Bezpieczne przykłady env, wycofany publiczny/hardcoded provider token, oddzielny keeper signer. Logo 512 px, OpenGraph 1200×630, angielskie README i slajdy, PDF, scenariusz ≤3-minutowego demo.
 
-## Zrobione
+## Zweryfikowane lokalnie
 
-- [x] Scaffold Anchor + Next.js
-- [x] PDA, bety, vault, claim/refund, yield_park CPI
-- [x] v2: feed Switchboard pinned + `feed-lock` PDA; `set_oracle_result` usunięty
-- [x] Semantyka wyniku: `intHomeScore − intAwayScore`; remis → `CANCEL_DRAW`
-- [x] Faucet on-chain (mint authority = PDA), `withdraw_treasury` tylko dla authority
-- [x] Katalog TheSportsDB (`fixtures.json`, 360 meczów); `/api/oracle` usunięte
-- [x] UI FairOdds, kursy tylko z puli, faucet w nav
-- [x] Jedna konfiguracja RPC + retry 429
-- [x] Integracja `tests/program-test`: **10/10**
-- [x] Upgrade obu programów na devnet (te same IDs), mint → PDA
-- [x] 8 rynków prematch z płynnością po obu stronach
-- [x] **Smoke OK**: Sevilla 1:3 Barcelona (`#2506233`) → claim 400 USDC
+- Unit Rust: **aichain 21/21**, **yield_park 5/5**.
+- **20/20 integracji SBF**, z rzeczywistymi skompilowanymi programami w solana-program-test. Legacy lifecycle, pinning/dual feed, brak strat principal, claim/refund/dust, nowe fee i one-sided cancellation, season deposit/resolve/claim/tie/timeout, podmienione i stare feedy, cutoff, spoofed reserve owner.
+- **13/13 testów źródeł**: consensus, mapowanie, finalność, daty i timeTBD.
+- **11/11 testów API**: dokładne kwoty, unsigned instrukcje obu typów zakładów, u64, receipt/cutoff/side, job finality, credential placeholders i memo Actions zachowujące kwotę/stronę oraz jedyny podpis portfela.
+- Root TypeScript i produkcyjny build Next.js: **PASS**.
+- **11/11 kontroli przeglądarkowych/HTTP**: rzeczywista lista 46 kanonicznych v2 rynków devnet; API input/body/auth; Actions GET/OPTIONS/CORS; English bez portfela, trwały PL, data na meczu i zablokowany claim bez receipt; brak overflow na 390 px dla home/match/seasons/admin; season table i pojedyncze pole stawki na wyraźnie odseparowanej fixturze. Brak błędów pageerror.
+- Zrzuty desktop/mobile i nagranie read-only: `docs/qa/`. Sezonów nie utworzono na żywym chainie; ich on-chain przepływy sprawdzają integracje SBF.
+- PDF: 8 stron, każda wyrenderowana do PNG i sprawdzona wizualnie; brak obcięć/overlap.
+- `git diff --check`: PASS. Brak śledzonych `.env`, keypairów i deploy-config. Dwie wcześniejsze wartości provider keys są w historii Git, brak ich w aktualnym publicznym bundlu. Właściciel musi wykonać rotację.
+- npm audit aplikacji: 18 pozostałych transitive advisories (7 moderate, 11 high, 0 critical). Next zaktualizowany i bezpieczne fixy wykonane; niezgodny `audit fix --force` nie został zastosowany.
 
-## Wiele źródeł + drugi feed (kod gotowy, devnet jeszcze nie)
+## Do uruchomienia w środowisku właściciela
 
-- [x] Probe na żywo (`npm run sources:probe`): Bundesliga TheSportsDB ↔ OpenLigaDB 30/30 sparowane, 20/20 zgodnych wyników, oba joby zwracają ten sam diff z oracli Switchboard
-- [x] `aichain`: `SecondaryOracle` PDA `["v2","oracle2",market]`, `attach_secondary_feed` (tylko pusty rynek przed startem), `resolve_market` wymaga identycznego diffu z obu feedów (`SourcesDisagree`); stare rynki bez PDA bez zmian; layout `MarketState` nietknięty
-- [x] IDL (`scripts/patch-idl.ts`), `switchboard.ts`, `cranks.ts`, `common.ts`: tworzenie z drugim feedem, resolve z osobną tx dla update'u drugiego feedu
-- [x] `scripts/sources/*`: TheSportsDB, OpenLigaDB, football-data, API-Football, PandaScore; parowanie po nazwach i kickoffie, konsensus bez głosowania większością
-- [x] Katalog w runtime (`/api/fixtures` czyta plik, bez rebuildu); `sources`, `marketable`
-- [x] `npm run keeper`: odświeżanie katalogu, auto-rynki, crank z blokadą przy sporze → `data/anomalies.json` → baner w UI
-- [x] Testy: unit `aichain` **20/20** (host, `cargo test -p aichain --lib`), adaptery **11/11** (`npm run test:sources`); integracja +3 scenariusze (zgodne / rozbieżne → refund / attach po zakładzie i po starcie) — kompiluje się, **nie uruchomione** (brak `.so`)
-- [ ] `cargo-build-sbf`, uruchomienie `tests/program-test` (13), upgrade `aichain` na devnet (`solana program extend` jeśli `.so` urósł), smoke z dwoma feedami na meczu Bundesligi — wymaga Solana CLI, ~20 GB wolnego, klucza authority `4W3P…qBQo` i `deploy-config.json`
+1. Zrotować wcześniej ujawnione API credentials; skonfigurować klucze według `DEPLOYMENT.md` i przykładów env. Nie potrzebujemy przesyłać ich do czatu.
+2. Zupgrade'ować istniejący **yield_park, potem aichain** rzeczywistą upgrade authority. Automatycznie wygenerowane target keypairs nie zastępują istniejących kluczy.
+3. Wdrożyć app/keeper, prywatny serwerowy RPC, Redis i CRON_SECRET; opublikować katalog, ustawić częstotliwość keepera zgodnie z planem hostingu.
+4. Z FOOTBALL_DATA_KEY przygotować i przejrzeć kompletne mapowania mistrza/strzelców, utworzyć oba sezonowe demo. Repo dostarcza pusty manifest zamiast niezweryfikowanego zwycięzcy.
+5. Wykonać wallet smoke: legacy claim, nowy fee, one-sided refund, dwa feedy, sezon, Actions na finalnym HTTPS URL. Zapisać nowe Explorer linki i nagrać rzeczywiste bet → settle → claim.
+6. Po przeglądzie sekretów zatwierdzić publiczne repo i zgłoszenie. Zamrożenie upgrade authority i produkcyjne Kamino/mainnet pozostają osobnym zakresem.
 
-## Demo (devnet)
-
-| Match ID | Event |
-|----------|-------|
-| 2494052 | Arsenal vs Leeds United |
-| 2508371 | Borussia Dortmund vs Werder Bremen |
-| 2489515 | Lens vs Lyon |
-| 2506240 | Málaga vs Espanyol |
-| 2501347 | West Ham vs QPR |
-| 2513999 | Moreirense vs Gil Vicente |
-| 2506246 | Rayo Vallecano vs Athletic Bilbao |
-| 2489129 | PSV vs Heerenveen |
-| 2506233 | Sevilla 1:3 Barcelona (smoke, rozliczony) |
-
-## Testy
-
-```powershell
-npm test                   # yield_park unit + integration (buduje oba .so osobno)
-npm run test:sources       # adaptery źródeł, parowanie, konsensus
-npm run smoke:devnet       # e2e na skończonym meczu TheSportsDB
-```
-
-Workspace `cargo-build-sbf` nadpisuje `yield_park.so` stubem (`cpi` / `no-entrypoint`). Zawsze buduj `yield_park` jako ostatni.
-
-## Program IDs
-
-```
-aichain     4FNHp1MjhJTqZZqQq333qrDBduT9orpF4zMTdXXUT1dg
-yield_park  6XUoUhwMgdurDYu47VKEpqAKczbkY36H22xHr9o9DNHS
-```
-
-## Deploy (skrót)
-
-| Key | Value |
-|-----|-------|
-| demo-USDC mint | `9QwGwtNdA6CWPzswHNM56B8uEtdxVY4ByiRi8aswNMvZ` |
-| Global PDA | `3Bu6JBP3WZzsG5aaEYeQTzfB5GYaDrcghB2FBzz4iSVt` |
-| Mint authority PDA | `FP782A6boonPr6YHaP4F9LNH3ReZZY244KHXRESdfPCX` |
-| Park | `BMYJWwqiuKSweGUzyhHZ6SCaZjax8ug7ngmU5S4bLiAE` |
-| Admin | `4W3PzT8zz2kkKUccegRwFZNCNXL9ZwdwYZJVMzsZqBQo` |
-| Fixture source | `https://www.thesportsdb.com/api/v1/json/3/lookupevent.php?id={idEvent}` |
-
-```powershell
-cd app; npm run dev
-npm run markets:create
-npm run markets:seed
-npm run crank -- --loop
-npm run keeper             # albo zamiast powyższych: katalog + rynki + crank w jednej pętli
-```
-
-## Jeszcze po naszej stronie (nie blokuje demo)
-
-- [x] Publiczny hosting UI (Vercel) — wdrożone i aktywne
-- [ ] Prywatny RPC (publiczny devnet 429) — mechanizm retry w kodzie gotowy, opcjonalnie podpiąć klucz Helius/QuickNode w Vercel
-- [ ] Dwa portfele Phantom na żywo
-- [ ] `scripts/freeze-upgrade-authority.ts --yes-i-understand` — nieodwracalne, tylko za zgodą
-- [ ] Publiczne repo / wideo ≤3 min
+Szczegółowe polecenia: [DEPLOYMENT](DEPLOYMENT.md). Kontrakt API: [BOT_API](BOT_API.md). Manifesty i zasady sezonów: [SEASON_MARKETS](SEASON_MARKETS.md). Pierwotny plan: [PLAN](PLAN.md).

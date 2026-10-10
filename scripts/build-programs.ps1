@@ -1,17 +1,9 @@
-# Build both programs using D: caches only.
-# Usage:  . D:\blockchain\scripts\env-d-drive.ps1; D:\blockchain\scripts\build-programs.ps1
-
+# Use an installed compatible Agave/Solana SBF toolchain; preserve the caller's cache setup.
 $ErrorActionPreference = "Stop"
-. "$PSScriptRoot\env-d-drive.ps1"
-$env:RUSTUP_HOME = "C:\Users\masta\.rustup"
-$env:Path = "C:\Users\masta\.cargo\bin;" + $env:Path
-
 Set-Location (Resolve-Path "$PSScriptRoot\..")
-
-Write-Host "Building yield_park..."
-cargo-build-sbf --tools-version v1.56 --arch sbfv2 --manifest-path programs\yield_park\Cargo.toml
-Write-Host "Building aichain..."
-cargo-build-sbf --tools-version v1.56 --arch sbfv2 --manifest-path programs\aichain\Cargo.toml
-
-Write-Host "Deploy artifacts:"
-Get-ChildItem target\deploy\*.so | Format-Table Name, Length
+$fairOddsBuildSbf = if ($env:CARGO_BUILD_SBF) { $env:CARGO_BUILD_SBF } else { "cargo-build-sbf" }
+& $fairOddsBuildSbf --manifest-path programs/aichain/Cargo.toml
+if ($LASTEXITCODE -ne 0) { throw "aichain SBF build failed" }
+& $fairOddsBuildSbf --manifest-path programs/yield_park/Cargo.toml
+if ($LASTEXITCODE -ne 0) { throw "yield_park SBF build failed" }
+Get-ChildItem target/deploy/*.so | Format-Table Name, Length

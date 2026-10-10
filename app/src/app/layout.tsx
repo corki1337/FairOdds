@@ -4,11 +4,30 @@ import { Nav } from "@/components/Nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "FairOdds — Real-match pools on Solana",
-  description: "Prematch pari-mutuel bookmaker. Odds from the pool, results from TheSportsDB via Switchboard.",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000"),
+  ),
+  title: "FairOdds — Real matches. Shared pools.",
+  icons: { icon: "/icon.png" },
+  openGraph: {
+    title: "FairOdds — Your side. Your stake.",
+    description:
+      "Shared sports pools on Solana devnet. 0.5% of match profit; 0% season fee.",
+    images: ["/og-image.png"],
+  },
+  twitter: { card: "summary_large_image", images: ["/og-image.png"] },
+  description:
+    "Prematch pari-mutuel bookmaker. Odds from the pool, results from TheSportsDB via Switchboard.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
       <head>

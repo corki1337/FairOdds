@@ -1,63 +1,29 @@
-# Uzasadnienie projektowe — FairOdds
+# FairOdds implementation design
 
-Kluczowe pytania projektowe: jaka relacja, kto był pośrednikiem, co zmienia jego usunięcie i dla kogo budujemy to rozwiązanie.
+## Compatible match policy
 
-## Relacja finansowa
+The existing v2 `MarketState` layout is unchanged. `MarketPolicy` lives at `["policy", market]` and is attached by the GlobalConfig authority only while a market is empty and before kickoff. New clients initialize market + policy atomically. Its fixed 50 bps charge applies only to `max(grossPayout - stake, 0)`; fee arithmetic uses u128 and floors. A missing canonical policy represents legacy zero fee/no immediate one-sided cancellation. Lock and claim instructions require the canonical policy address even when uninitialized; clients must update with the program.
 
-**Przed:** gracz obstawia mecz u bukmachera. Oddaje pieniądze, dostaje kurs, czeka na werdykt biura.
+At lock, opted-in one-sided pools cancel directly without yield deposit. Otherwise principal parks until settlement. Refunds preserve principal; gross winner entitlement and fee + net transfer are atomic. Claimed bookkeeping tracks gross liabilities. Final eligible claims/harvest sweep rounding dust only after obligations are complete.
 
-**Po:** dwóch (albo stu) graczy wkłada USDC do wspólnej puli na Solanie. Kurs jest pochodną udziałów w puli. Werdykt to znak różnicy bramek z publicznego API, podpisany przez sieć oracle. Wypłata to dzielenie całkowite, nie decyzja człowieka.
+## Seasons
 
-To ten sam wzorzec, który znamy z lendingu: nie ufasz drugiej stronie ani instytucji, ufasz regule, której nikt nie obejdzie.
+`SeasonMarket` and `SeasonReceipt` have independent seeds and layouts. Up to 32 names/pools are fixed at creation, kind indicates champion/scorer, and a visible historical-demo flag distinguishes known-result demonstrations. A wallet picks one ordinal and can only top up that ordinal before cutoff. Every stake deposits via CPI immediately. Two different immutable feed hashes and addresses are fixed with the season. Result 1..N maps to ordinal, 0 final tie, negative/pending invalid. Both feeds must agree with samples at/after end time. A tied/empty winner or expired deadline cancels. Payouts use full principal and zero fee; all actual surplus is treasury revenue.
 
-## Kto był pośrednikiem
+## Demo reserve
 
-Bukmacher / szara platforma / „crypto betting telegram”:
+`yield_park` is an explicitly funded reserve with share accounting. It does not execute Kamino lending. Settlement checks returned principal; a shortage exceeding 1,000 atomic units fails. Bounded smaller rounding is covered only from unallocated park-vault balance, leaving `park.total_deposits` covered. The cover caller must be a signing canonical aichain match/season PDA, with valid program owner, discriminator and ID-derived address. A system-created account merely owned by aichain cannot drain the reserve. Transfer, bookkeeping and CPI failures roll back atomically. Exhausted reserve never silently haircuts another depositor.
 
-1. Custody stawek
-2. Księga kursów (może ją zmienić)
-3. Desk, który uznaje wynik i wypłaca — albo nie
+## Sources and ownership
 
-On zarabia na vig, na opóźnieniach, na tym, że przegrany nie ma do kogo iść.
+New TheSportsDB jobs require `strStatus=FT`; new PandaScore jobs require finished/non-forfeit, matching scores by opponent IDs. Existing football feed hashes use original immutable jobs. Unsupported historical hashes cannot be silently replaced; keeper holds them for deadline refund. OpenLigaDB final scores require matchIsFinished and Endergebnis. TheSportsDB semantics are provider-specific; competitions with extra time require reviewed source/rule selection before real use.
 
-## Co znika razem z nim
+Season jobs check full double round-robin team-game totals before ID translation. Only reviewed provider ID mappings are published. Unknown IDs wait rather than select a guessed winner. Scorer ties cancel; tournaments/playoffs need their own reviewed finality job. Credentials remain server environment variables, passed to the oracle execution request as overrides; stored jobs contain variable placeholders.
 
-Nie znika *źródło wyniku* — mecz i tak ktoś musi zmierzyć. Znika **władza nad kasą i nad wzorem**.
+GlobalConfig authority controls creation and feed selection before acceptance of stakes. Immutable feed-lock authority prevents later job edits; upgrade authority still controls upgradeable program code. Sports providers and Switchboard remain trust dependencies. Off-chain extra-source dispute guards are not enforced against all permissionless callers of a single-feed match.
 
-- Stawki nie są na koncie spółki. Są na vault PDA, którego authority to sam rynek.
-- Kursu nikt nie publikuje z góry. `implied odds = całkowita pula / pula strony`.
-- `claim_winnings` nie pyta admina. Pyta: czy Twój `team_selected` == `winning_team` i czy jeszcze nie brałeś.
-- Admin nie ma instrukcji „ustaw wynik”. `set_oracle_result` zostało usunięte.
-- Remis i cisza oracle nie zostawiają kasy w próżni: zwrot 100%.
+## API and hosting
 
-Zostaje świadome, dozwolone przez zasady zaufanie do **Switchboard + TheSportsDB**. To nie jest nasz backend. Nasz serwer nie jest w pathu rozliczenia.
+Amounts are exact decimal strings -> u64 units. Builders validate key, side, cutoff and existing receipt, create the canonical ATA idempotently and return an unsigned transaction. On-chain checks cover races after building. Reader wallets cannot sign. Private RPC/provider/keeper keys never use NEXT_PUBLIC env names. Requests are capped at 4 KiB and 60/min/client; Redis shares counters between hosts.
 
-## Dla kogo
-
-**Główny użytkownik:** osoba obstawiająca prawdziwe mecze (piłka nożna, LoL), która nie chce oddawać kasy i werdyktu jednemu biuru.
-
-Język UI: polski, „gospodarze / goście / pula / claim”, nie „PDA / discriminator”.
-
-**Świadomy pivot (potencjał wdrożeniowy, 15% oceny):** ten sam program, inne etykiety:
-
-- ubezpieczenie parametryczne — „mecz odwołany w ciągu 24h → zwrot składki”
-- escrow freelancera — „milestone z merge’a / podpisu klienta → wypłata”
-- rozliczenie B2B — „indeks / dostawa vs próg → split”
-
-Dlatego crate nazywa się nadal `aichain`: domain-agnostic settlement, FairOdds to pierwsza skóra.
-
-## Model przychodu bez vig
-
-`payout = floor(stake × payout_pool / winning_pool)`.
-
-Nie ucinamy wygranej. Między `lock` a `resolve` kapitał leży w `yield_park` (na hackathon własny mikro-protokół; produkcyjnie ten sam adapter → Kamino). Odsetki i kurz zaokrągleń idą do treasury. Vaultów graczy `withdraw_treasury` nie widzi.
-
-## Czemu blockchain, nie baza
-
-Operator bazy:
-
-- edytuje wiersz `claimed = true` bez wypłaty,
-- wyłącza endpoint w niedzielę wieczór,
-- trzyma USDC na swoim koncie.
-
-Tu każda stawka i każda wypłata ma sygnaturę na Solanie. Explorer jest dowodem, nie screenshotem z panelu admina.
+Catalog, manifests and anomalies use Redis REST on serverless hosting; local writes use unique temporary files + atomic rename. Both keeper modes share lock/refetch/resolve/timeout decisions and season settlement. Cron authenticates Bearer tokens with timing-safe comparison and uses a Redis lease. Root CLI retains authority for creating fixtures; hosting keeper has a separate funded permissionless signer. Network retries rotate endpoints with finite timeouts.

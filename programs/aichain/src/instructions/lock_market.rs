@@ -8,6 +8,7 @@ use crate::errors::AichainError;
 use crate::events::MarketLocked;
 use crate::state::{GlobalConfig, MarketState, MarketStatus, SEED_GLOBAL, SEED_MARKET, SEED_VAULT, SEED_VERSION};
 use crate::yield_cpi;
+use crate::state::{load_policy, SEED_POLICY, CANCEL_ONE_SIDED};
 
 #[derive(Accounts)]
 pub struct LockMarket<'info> {
@@ -54,6 +55,9 @@ pub struct LockMarket<'info> {
 
     pub yield_park_program: Program<'info, YieldPark>,
     pub system_program: Program<'info, System>,
+    /// CHECK: mandatory derived policy; absence preserves legacy rules
+    #[account(seeds = [SEED_VERSION, SEED_POLICY, market.key().as_ref()], bump)]
+    pub policy: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
 }
 
@@ -68,6 +72,17 @@ pub fn handler(ctx: Context<LockMarket>) -> Result<()> {
         AichainError::ResolveWindowClosed
     );
 
+    let policy = load_policy(&ctx.accounts.policy.to_account_info(), &ctx.accounts.market.key())?;
+    if policy.map(|p| p.cancel_one_sided).unwrap_or(false)
+        && (ctx.accounts.market.pool_team_a == 0 || ctx.accounts.market.pool_team_b == 0) {
+        let market = &mut ctx.accounts.market;
+        require!(ctx.accounts.vault.amount >= market.total_pool(), AichainError::PrincipalShortfall);
+        market.status = MarketStatus::Cancelled;
+        market.cancel_reason = CANCEL_ONE_SIDED;
+        market.payout_pool = market.total_pool();
+        emit!(crate::events::MarketResolved { market: market.key(), oracle_result: u8::MAX, winning_team: None, cancel_reason: CANCEL_ONE_SIDED, payout_pool: market.payout_pool, yield_harvested: 0 });
+        return Ok(());
+    }
     let amount = ctx.accounts.vault.amount;
     let market_key = ctx.accounts.market.key();
 

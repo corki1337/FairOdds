@@ -1,17 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loadCatalog } from "@/lib/catalog";
-import { CATEGORIES, toFixtureView, type FixtureCategoryId } from "@/lib/fixtures";
+import {
+  CATEGORIES,
+  toFixtureView,
+  type FixtureCategoryId,
+} from "@/lib/fixtures";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const catalog = loadCatalog();
-  const category = req.nextUrl.searchParams.get("category") as FixtureCategoryId | null;
+  const catalog = await loadCatalog();
+  const category = req.nextUrl.searchParams.get(
+    "category",
+  ) as FixtureCategoryId | null;
   const statusFilter = req.nextUrl.searchParams.get("status") || "scheduled";
   const sort = req.nextUrl.searchParams.get("sort") || "time"; // time | time_desc | league
   const q = (req.nextUrl.searchParams.get("q") || "").trim().toLowerCase();
   const league = req.nextUrl.searchParams.get("league");
-  const limit = Math.min(Number(req.nextUrl.searchParams.get("limit") || "100"), 500);
+  const limit = Math.min(
+    Number(req.nextUrl.searchParams.get("limit") || "100"),
+    500,
+  );
   const nowSec = Math.floor(Date.now() / 1000);
 
   let fixtures = catalog.fixtures.map((f) => toFixtureView(f, nowSec));
@@ -28,7 +37,7 @@ export async function GET(req: NextRequest) {
         f.teamA.toLowerCase().includes(q) ||
         f.teamB.toLowerCase().includes(q) ||
         f.league.toLowerCase().includes(q) ||
-        f.matchId.includes(q)
+        f.matchId.includes(q),
     );
   }
 
@@ -44,7 +53,9 @@ export async function GET(req: NextRequest) {
       fixtures.sort((a, b) => b.startTime - a.startTime);
       break;
     case "league":
-      fixtures.sort((a, b) => a.league.localeCompare(b.league) || a.startTime - b.startTime);
+      fixtures.sort(
+        (a, b) => a.league.localeCompare(b.league) || a.startTime - b.startTime,
+      );
       break;
     case "time":
     default:

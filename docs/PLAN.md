@@ -1,5 +1,7 @@
 # Plan Wdrożenia — FairOdds (Colosseum Hackathon)
 
+> Realizacja i wyniki bieżącego wydania: [STATUS](STATUS.md). Wymagane działania właściciela po mergu: [DEPLOYMENT](DEPLOYMENT.md). Poniższy dokument zachowuje oryginalne założenia; Kamino, live upgrade i publikacja nie są potwierdzone przez lokalne testy.
+
 Kompletny, ustrukturyzowany plan techniczny i submissionowy do wygrania w hackathonie **Colosseum (Crypto World's Fair — Solana Track)**.
 
 ---

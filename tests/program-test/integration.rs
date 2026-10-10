@@ -440,6 +440,7 @@ impl Env {
         let ix = Instruction {
             program_id: aichain::ID,
             accounts: aichain::accounts::LockMarket {
+                policy: pda(&[SEED_VERSION, b"policy", market.as_ref()], &aichain::ID),
                 crank: self.admin(),
                 global: self.global,
                 market,
@@ -538,6 +539,9 @@ impl Env {
         let ix = Instruction {
             program_id: aichain::ID,
             accounts: aichain::accounts::ClaimWinnings {
+                policy: pda(&[SEED_VERSION, b"policy", market.as_ref()], &aichain::ID),
+                global: self.global,
+                treasury: self.treasury,
                 user: u.kp.pubkey(),
                 market,
                 vault: vault_pda(&market),
@@ -662,6 +666,48 @@ impl Env {
         let signers: Vec<&Keypair> = authority.into_iter().collect();
         self.send(vec![ix], &signers).await
     }
+    async fn policy(&mut self, market: Pubkey) -> TxResult {
+        let ix = Instruction { program_id: aichain::ID, accounts: aichain::accounts::AttachMarketPolicy {
+            authority: self.admin(), global:self.global, market,
+            policy:pda(&[SEED_VERSION,b"policy",market.as_ref()],&aichain::ID), system_program:system_program::ID,
+        }.to_account_metas(None), data:aichain::instruction::AttachMarketPolicy {}.data() };
+        self.send(vec![ix], &[]).await
+    }
+    async fn create_season(&mut self, feeds:[Pubkey;2], t:Times) -> Pubkey {
+        use aichain::instructions::seasons::*;
+        let id=self.next_id;self.next_id+=1;
+        let season=pda(&[SEED_VERSION,SEED_SEASON,&id.to_le_bytes()],&aichain::ID);
+        let ix=Instruction {program_id:aichain::ID,accounts:aichain::accounts::InitializeSeason {
+            authority:self.admin(),global:self.global,usdc_mint:self.mint,season,vault:vault_pda(&season),primary_feed:feeds[0],secondary_feed:feeds[1],feed_lock:self.feed_lock,token_program:spl_token::ID,system_program:system_program::ID,rent:sysvar::rent::ID,
+        }.to_account_metas(None),data:aichain::instruction::InitializeSeason {params:SeasonParams {id,title:name("League champion"),kind:0,historical_demo:true,cutoff:t.start,end_time:t.end,resolve_deadline:t.deadline,names:vec![name("Alpha"),name("Beta"),name("Gamma")]}}.data()};
+        self.send(vec![ix],&[]).await.unwrap();season
+    }
+    async fn season_bet(&mut self,user:&User,season:Pubkey,amount:u64,selected:u8)->TxResult {
+        use aichain::instructions::seasons::*;
+        let ix=Instruction {program_id:aichain::ID,accounts:aichain::accounts::PlaceSeasonBet {
+            user:user.kp.pubkey(),global:self.global,season,vault:vault_pda(&season),user_ata:user.ata,
+            receipt:pda(&[SEED_VERSION,SEED_SEASON_RECEIPT,season.as_ref(),user.kp.pubkey().as_ref()],&aichain::ID),park:self.park,park_vault:self.park_vault,position:self.position(&season),yield_park_program:yield_park::ID,token_program:spl_token::ID,system_program:system_program::ID,
+        }.to_account_metas(None),data:aichain::instruction::PlaceSeasonBet {amount,selected}.data()};
+        self.send(vec![ix],&[&user.kp]).await
+    }
+    async fn season_settle(&mut self,season:Pubkey,feeds:[Pubkey;2],expired:bool)->TxResult {
+        let accounts=aichain::accounts::SettleSeason {crank:self.admin(),global:self.global,season,vault:vault_pda(&season),treasury:self.treasury,primary_feed:feeds[0],secondary_feed:feeds[1],feed_lock:self.feed_lock,park:self.park,park_vault:self.park_vault,position:self.position(&season),yield_park_program:yield_park::ID,token_program:spl_token::ID}.to_account_metas(None);
+        let data=if expired {aichain::instruction::CancelSeason {}.data()}else{aichain::instruction::ResolveSeason {}.data()};
+        self.send(vec![Instruction {program_id:aichain::ID,accounts,data}],&[]).await
+    }
+    async fn season_claim(&mut self,user:&User,season:Pubkey)->TxResult {
+        use aichain::instructions::seasons::*;
+        let ix=Instruction {program_id:aichain::ID,accounts:aichain::accounts::ClaimSeason {
+            user:user.kp.pubkey(),global:self.global,season,vault:vault_pda(&season),user_ata:user.ata,
+            receipt:pda(&[SEED_VERSION,SEED_SEASON_RECEIPT,season.as_ref(),user.kp.pubkey().as_ref()],&aichain::ID),treasury:self.treasury,token_program:spl_token::ID,
+        }.to_account_metas(None),data:aichain::instruction::ClaimSeason {}.data()};
+        self.send(vec![ix],&[&user.kp]).await
+    }
+    async fn season_state(&mut self,season:Pubkey)->aichain::instructions::seasons::SeasonMarket {
+        let a=self.ctx.banks_client.get_account(season).await.unwrap().unwrap();
+        aichain::instructions::seasons::SeasonMarket::try_deserialize(&mut a.data.as_slice()).unwrap()
+    }
+
 }
 
 #[tokio::test]
@@ -1133,4 +1179,88 @@ async fn lock_cannot_happen_after_deadline() {
     let a0 = env.balance(&alice.ata).await;
     env.refund(&alice, market).await.unwrap();
     assert_eq!(env.balance(&alice.ata).await - a0, 10 * USDC);
+}
+
+
+#[tokio::test]
+async fn new_match_fee_only_taxes_profit_and_policy_cannot_change_after_bets() {
+    let mut env=Env::new().await;let ts=env.far_future().await;
+    let feed=env.new_feed(Feed::diff(1,ts));let t=env.times(HOUR,HOUR,HOUR).await;
+    let (market,r)=env.create_market(feed,t).await;r.unwrap();env.policy(market).await.unwrap();
+    let alice=env.user(1000*USDC).await;let bob=env.user(1000*USDC).await;
+    env.bet(&alice,market,100*USDC,0).await.unwrap();env.bet(&bob,market,300*USDC,1).await.unwrap();
+    env.warp(t.end).await;env.lock(market).await.unwrap();env.resolve(market,feed,None).await.unwrap();
+    let before=env.balance(&alice.ata).await;let treasury=env.balance(&env.treasury.clone()).await;
+    env.claim(&alice,market).await.unwrap();assert_eq!(env.balance(&alice.ata).await-before,398_500_000);
+    assert_eq!(env.balance(&env.treasury.clone()).await-treasury,1_500_000);
+    assert_err(env.claim(&alice,market).await,AichainError::AlreadyClaimed);
+    let later=env.times(HOUR,HOUR,HOUR).await;let (legacy,r)=env.create_market(feed,later).await;r.unwrap();
+    env.bet(&alice,legacy,USDC,0).await.unwrap();assert_err(env.policy(legacy).await,AichainError::MarketHasBets);
+}
+#[tokio::test]
+async fn opted_in_one_sided_pool_refunds_at_kickoff_without_oracle() {
+    let mut env=Env::new().await;let ts=env.far_future().await;let feed=env.new_feed(Feed::diff(1,ts));let t=env.times(HOUR,HOUR,HOUR).await;
+    let (market,r)=env.create_market(feed,t).await;r.unwrap();env.policy(market).await.unwrap();let u=env.user(100*USDC).await;
+    env.bet(&u,market,37*USDC,0).await.unwrap();env.warp(t.start).await;env.lock(market).await.unwrap();
+    let state=env.market(&market).await;assert!(state.status==MarketStatus::Cancelled);assert_eq!(state.cancel_reason,aichain::state::CANCEL_ONE_SIDED);
+    let before=env.balance(&u.ata).await;env.refund(&u,market).await.unwrap();assert_eq!(env.balance(&u.ata).await-before,37*USDC);
+}
+#[tokio::test]
+async fn season_three_sides_deposit_immediately_and_winner_pays_no_fee() {
+    let mut env=Env::new().await;let ts=env.far_future().await;let feeds=[env.new_feed(Feed::diff(2,ts)),env.new_feed(Feed::other_source(2,ts))];let t=env.times(HOUR,24*HOUR,HOUR).await;
+    let s=env.create_season(feeds,t).await;let a=env.user(1000*USDC).await;let b=env.user(1000*USDC).await;let c=env.user(1000*USDC).await;
+    env.season_bet(&a,s,100*USDC,0).await.unwrap();assert_eq!(env.balance(&vault_pda(&s)).await,0);
+    env.season_bet(&b,s,200*USDC,1).await.unwrap();env.season_bet(&c,s,300*USDC,2).await.unwrap();
+    assert_err(env.season_bet(&a,s,USDC,1).await,AichainError::TeamMismatch);
+    assert_err(env.season_settle(s,feeds,false).await,AichainError::ResolveTooEarly);
+    env.warp(t.end).await;env.season_settle(s,feeds,false).await.unwrap();let state=env.season_state(s).await;assert_eq!(state.winner,Some(1));assert!(state.yield_harvested>0);
+    assert_err(env.season_claim(&a,s).await,AichainError::NotWinner);
+    let before=env.balance(&b.ata).await;env.season_claim(&b,s).await.unwrap();assert_eq!(env.balance(&b.ata).await-before,600*USDC);
+    assert_err(env.season_claim(&b,s).await,AichainError::AlreadyClaimed);
+}
+#[tokio::test]
+async fn season_disagreement_and_pending_result_wait_then_refund_on_deadline() {
+    let mut env=Env::new().await;let ts=env.far_future().await;let feeds=[env.new_feed(Feed::diff(1,ts)),env.new_feed(Feed::other_source(2,ts))];let t=env.times(HOUR,HOUR,HOUR).await;
+    let s=env.create_season(feeds,t).await;let u=env.user(100*USDC).await;env.season_bet(&u,s,17*USDC,0).await.unwrap();env.warp(t.end).await;
+    assert_err(env.season_settle(s,feeds,false).await,AichainError::SourcesDisagree);
+    env.put_feed(feeds[0],Feed::diff(-1,ts));assert_err(env.season_settle(s,feeds,false).await,AichainError::InvalidOracleResult);
+    env.warp(t.deadline).await;env.season_settle(s,feeds,true).await.unwrap();let before=env.balance(&u.ata).await;env.season_claim(&u,s).await.unwrap();assert_eq!(env.balance(&u.ata).await-before,17*USDC);
+}
+#[tokio::test]
+async fn season_tie_or_empty_winner_returns_stakes_without_fee() {
+    for result in [0,3] {
+        let mut env=Env::new().await;let ts=env.far_future().await;let feeds=[env.new_feed(Feed::diff(result,ts)),env.new_feed(Feed::other_source(result,ts))];let t=env.times(HOUR,HOUR,HOUR).await;
+        let s=env.create_season(feeds,t).await;let u=env.user(100*USDC).await;env.season_bet(&u,s,11*USDC,0).await.unwrap();env.warp(t.end).await;
+        env.season_settle(s,feeds,false).await.unwrap();assert!(env.season_state(s).await.status==MarketStatus::Cancelled);
+        let before=env.balance(&u.ata).await;env.season_claim(&u,s).await.unwrap();assert_eq!(env.balance(&u.ata).await-before,11*USDC);
+    }
+}
+
+#[tokio::test]
+async fn reserve_dust_cannot_be_drained_by_a_keypair_owned_by_settlement_program() {
+    let mut env=Env::new().await;let attacker=Keypair::new();let ata=env.token_account(&attacker.pubkey(),1_000_000_000).await;
+    let mut data=anchor_lang::solana_program::hash::hash(b"account:MarketState").to_bytes()[..8].to_vec();data.extend_from_slice(&1u64.to_le_bytes());
+    env.ctx.set_account(&attacker.pubkey(),&Account {lamports:1_000_000_000,data,owner:aichain::ID,executable:false,rent_epoch:0}.into());
+    let ix=Instruction {program_id:yield_park::ID,accounts:yield_park::accounts::CoverPrincipalDust {owner:attacker.pubkey(),park:env.park,owner_ata:ata,park_vault:env.park_vault,token_program:spl_token::ID}.to_account_metas(None),data:yield_park::instruction::CoverPrincipalDust {amount:1000}.data()};
+    assert_custom(env.send(vec![ix],&[&attacker]).await,yield_park::errors::YieldError::InvalidSettlementOwner.into());
+}
+
+#[tokio::test]
+async fn season_cutoff_and_pinned_fresh_feeds_cannot_be_bypassed() {
+    let mut env=Env::new().await;let ts=env.far_future().await;
+    let feeds=[env.new_feed(Feed::diff(1,ts)),env.new_feed(Feed::other_source(1,ts))];
+    let t=env.times(HOUR,HOUR,HOUR).await;let s=env.create_season(feeds,t).await;
+    let user=env.user(100*USDC).await;env.season_bet(&user,s,10*USDC,0).await.unwrap();
+    env.warp(t.start).await;
+    assert_err(env.season_bet(&user,s,USDC,0).await,AichainError::BettingClosed);
+    env.warp(t.end).await;
+    assert_err(env.season_settle(s,[feeds[1],feeds[0]],false).await,AichainError::OracleMismatch);
+    env.put_feed(feeds[0],Feed::diff(1,t.end-1));
+    assert_err(env.season_settle(s,feeds,false).await,AichainError::FeedStale);
+    env.put_feed(feeds[0],Feed::other_source(1,ts));
+    assert_err(env.season_settle(s,feeds,false).await,AichainError::FeedHashMismatch);
+    env.put_feed(feeds[0],Feed::diff(1,ts));
+    env.season_settle(s,feeds,false).await.unwrap();
+    let before=env.balance(&user.ata).await;env.season_claim(&user,s).await.unwrap();
+    assert_eq!(env.balance(&user.ata).await-before,10*USDC);
 }

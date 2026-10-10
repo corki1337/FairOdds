@@ -24,6 +24,7 @@ import {
   globalPda,
   marketPda,
   mintAuthorityPda,
+  policyPda,
   parkPda,
   parkVaultPda,
   positionPda,
@@ -40,6 +41,7 @@ import {
   loadSwitchboard,
   SbProgram,
   scoreDiffJobs,
+  jobsForMatch,
   secondaryJobs,
 } from "./switchboard";
 
@@ -50,17 +52,25 @@ export async function sendV0(
   connection: Connection,
   wallet: WalletContextState,
   ixs: TransactionInstruction[],
-  opts: { signers?: Keypair[]; luts?: AddressLookupTableAccount[]; units?: number } = {}
+  opts: {
+    signers?: Keypair[];
+    luts?: AddressLookupTableAccount[];
+    units?: number;
+  } = {},
 ): Promise<string> {
-  if (!wallet.publicKey || !wallet.signTransaction) throw new Error("Połącz wallet.");
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+  if (!wallet.publicKey || !wallet.signTransaction)
+    throw new Error("Połącz wallet.");
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash("confirmed");
   const msg = new TransactionMessage({
     payerKey: wallet.publicKey,
     recentBlockhash: blockhash,
     // Compute budget goes last: Switchboard's secp256k1 verify ix references instruction 0.
     instructions: [
       ...ixs,
-      ComputeBudgetProgram.setComputeUnitLimit({ units: opts.units ?? 400_000 }),
+      ComputeBudgetProgram.setComputeUnitLimit({
+        units: opts.units ?? 400_000,
+      }),
       ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100_000 }),
     ],
   }).compileToV0Message(opts.luts ?? []);
@@ -70,9 +80,12 @@ export async function sendV0(
   const sig = await connection.sendTransaction(tx);
   const res = await connection.confirmTransaction(
     { signature: sig, blockhash, lastValidBlockHeight },
-    "confirmed"
+    "confirmed",
   );
-  if (res.value.err) throw new Error(`Transakcja ${sig} nie przeszła: ${JSON.stringify(res.value.err)}`);
+  if (res.value.err)
+    throw new Error(
+      `Transakcja ${sig} nie przeszła: ${JSON.stringify(res.value.err)}`,
+    );
   return sig;
 }
 
@@ -100,7 +113,7 @@ export async function createMarketTx(
     resolveDeadline: number;
     /** Second independent feed; attached in the same transaction as the market itself. */
     secondary?: { source: number; sourceRef: string };
-  }
+  },
 ): Promise<{ sig: string; feed: PublicKey; secondaryFeed?: PublicKey }> {
   if (!wallet.publicKey) throw new Error("Połącz wallet.");
   const payer = wallet.publicKey;
@@ -123,7 +136,7 @@ export async function createMarketTx(
       new BN(p.end),
       new BN(p.resolveDeadline),
       encodeTeamName(p.teamA),
-      encodeTeamName(p.teamB)
+      encodeTeamName(p.teamB),
     )
     .accounts({
       authority: wallet.publicKey,
@@ -138,10 +151,25 @@ export async function createMarketTx(
       rent: SYSVAR_RENT_PUBKEY,
     })
     .instruction();
+  const policyIx = await program.methods
+    .attachMarketPolicy()
+    .accounts({
+      authority: payer,
+      global,
+      market,
+      policy: policyPda(programId, market)[0],
+      systemProgram: SystemProgram.programId,
+    })
+    .instruction();
   if (!p.secondary) {
-    const sig = await sendV0(connection, wallet, [...primary.ixs, initIx], {
-      signers: [primary.feedKeypair],
-    });
+    const sig = await sendV0(
+      connection,
+      wallet,
+      [...primary.ixs, initIx, policyIx],
+      {
+        signers: [primary.feedKeypair],
+      },
+    );
     return { sig, feed };
   }
   const second = await buildCreateFeedIxs(sb, {
@@ -150,8 +178,12 @@ export async function createMarketTx(
     payer,
     feedLock,
   });
-  await sendV0(connection, wallet, primary.ixs, { signers: [primary.feedKeypair] });
-  await sendV0(connection, wallet, second.ixs, { signers: [second.feedKeypair] });
+  await sendV0(connection, wallet, primary.ixs, {
+    signers: [primary.feedKeypair],
+  });
+  await sendV0(connection, wallet, second.ixs, {
+    signers: [second.feedKeypair],
+  });
   const [secondary] = secondaryOraclePda(programId, market);
   const attachIx = await program.methods
     .attachSecondaryFeed(p.secondary.source, new BN(p.secondary.sourceRef))
@@ -165,14 +197,19 @@ export async function createMarketTx(
       systemProgram: SystemProgram.programId,
     })
     .instruction();
-  const sig = await sendV0(connection, wallet, [initIx, attachIx]);
+  const sig = await sendV0(connection, wallet, [initIx, policyIx, attachIx]);
   return { sig, feed, secondaryFeed: second.feed };
 }
 
-export async function fetchSecondaryOracle(connection: Connection, market: PublicKey) {
+export async function fetchSecondaryOracle(
+  connection: Connection,
+  market: PublicKey,
+) {
   const [pda] = secondaryOraclePda(programId, market);
   const info = await connection.getAccountInfo(pda, "confirmed");
-  return info && info.owner.equals(programId) ? decodeSecondaryOracle(info.data) : null;
+  return info && info.owner.equals(programId)
+    ? decodeSecondaryOracle(info.data)
+    : null;
 }
 
 async function feedUpdate(
@@ -181,24 +218,35 @@ async function feedUpdate(
   feed: PublicKey,
   jobs: ReturnType<typeof scoreDiffJobs>,
   payer: PublicKey,
-  notBefore: number
-): Promise<{ ixs: TransactionInstruction[]; luts: AddressLookupTableAccount[] } | null> {
+  notBefore: number,
+): Promise<{
+  ixs: TransactionInstruction[];
+  luts: AddressLookupTableAccount[];
+} | null> {
   const info = await connection.getAccountInfo(feed, "confirmed");
-  if (info && decodeFeedSubmissions(info.data, notBefore).values.length > 0) return null;
+  if (info && decodeFeedSubmissions(info.data, notBefore).values.length > 0)
+    return null;
   const upd = await buildFeedUpdateIxs(sb, { feed, jobs, payer });
   if (upd.ixs.length === 0) {
-    throw new Error(`Oracle nie zwrócił wyniku: ${upd.errors.join("; ") || "brak odpowiedzi"}`);
+    throw new Error(
+      `Oracle nie zwrócił wyniku: ${upd.errors.join("; ") || "brak odpowiedzi"}`,
+    );
   }
   return { ixs: upd.ixs, luts: upd.luts };
 }
 
-export async function lockIx(program: Program, crank: PublicKey, market: PublicKey) {
+export async function lockIx(
+  program: Program,
+  crank: PublicKey,
+  market: PublicKey,
+) {
   const { global, park, parkVault } = await shared(program);
   const [vault] = vaultPda(programId, market);
   const [position] = positionPda(yieldId, park, market);
   return program.methods
     .lockMarket()
     .accounts({
+      policy: policyPda(programId, market)[0],
       crank,
       global,
       market,
@@ -217,7 +265,15 @@ async function settleAccounts(program: Program, market: PublicKey) {
   const { global, park, parkVault, treasury } = await shared(program);
   const [vault] = vaultPda(programId, market);
   const [position] = positionPda(yieldId, park, market);
-  return { global, vault, treasury, park, parkVault, position, yieldParkProgram: yieldId };
+  return {
+    global,
+    vault,
+    treasury,
+    park,
+    parkVault,
+    position,
+    yieldParkProgram: yieldId,
+  };
 }
 
 /**
@@ -231,13 +287,19 @@ export async function resolveWithOracle(
   connection: Connection,
   wallet: WalletContextState,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  market: { publicKey: PublicKey; account: any }
+  market: { publicKey: PublicKey; account: any },
 ): Promise<string> {
   if (!wallet.publicKey) throw new Error("Połącz wallet.");
   const m = market.account;
   const status = Object.keys(m.status)[0];
   if (status === "open") {
-    await sendV0(connection, wallet, [await lockIx(program, wallet.publicKey, market.publicKey)]);
+    const signature = await sendV0(connection, wallet, [
+      await lockIx(program, wallet.publicKey, market.publicKey),
+    ]);
+    const refreshed = await (program.account as any).marketState.fetch(
+      market.publicKey,
+    );
+    if (Object.keys(refreshed.status)[0] === "cancelled") return signature;
   }
   const feed = m.oracleFeed as PublicKey;
   const endTime = Number(m.endTime);
@@ -250,7 +312,7 @@ export async function resolveWithOracle(
       second.feed,
       secondaryJobs(second.source, second.sourceRef),
       wallet.publicKey,
-      endTime
+      endTime,
     );
     if (upd) await sendV0(connection, wallet, upd.ixs, { luts: upd.luts });
   }
@@ -258,9 +320,9 @@ export async function resolveWithOracle(
     sb,
     connection,
     feed,
-    scoreDiffJobs(m.matchId.toString()),
+    jobsForMatch(m.matchId.toString(), m.feedHash),
     wallet.publicKey,
-    endTime
+    endTime,
   );
   const ixs: TransactionInstruction[] = [...(upd?.ixs ?? [])];
   const luts = upd?.luts ?? [];
@@ -280,7 +342,7 @@ export async function resolveWithOracle(
         ...(await settleAccounts(program, market.publicKey)),
         tokenProgram: TOKEN_PROGRAM_ID,
       })
-      .instruction()
+      .instruction(),
   );
   return sendV0(connection, wallet, ixs, { luts, units: 600_000 });
 }
@@ -289,7 +351,7 @@ export async function cancelExpired(
   program: Program,
   connection: Connection,
   wallet: WalletContextState,
-  market: PublicKey
+  market: PublicKey,
 ): Promise<string> {
   if (!wallet.publicKey) throw new Error("Połącz wallet.");
   const ix = await program.methods
@@ -308,7 +370,7 @@ export async function harvestDust(
   program: Program,
   connection: Connection,
   wallet: WalletContextState,
-  market: PublicKey
+  market: PublicKey,
 ): Promise<string> {
   if (!wallet.publicKey) throw new Error("Połącz wallet.");
   const { global, treasury } = await shared(program);
@@ -331,7 +393,7 @@ export async function harvestDust(
 export async function claimFaucet(
   program: Program,
   connection: Connection,
-  wallet: WalletContextState
+  wallet: WalletContextState,
 ): Promise<string> {
   if (!wallet.publicKey) throw new Error("Połącz wallet.");
   const { global, mint } = await shared(program);
@@ -356,6 +418,7 @@ export async function claimFaucet(
 
 export const CANCEL_REASONS: Record<number, string> = {
   0: "",
+  5: "Brak stawki po drugiej stronie — pełny zwrot",
   2: "Nikt nie obstawił zwycięzcy",
   3: "Brak wyniku oracle przed terminem — automatyczny zwrot",
   4: "Remis — zakład 1/2 nie ma zwycięzcy, zwrot stawek",

@@ -18,7 +18,7 @@ import {
   setAuthority,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
+import { PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
 import * as fs from "fs";
 import * as path from "path";
 import { SPORTSDB_BASE } from "../app/src/lib/fixtures";
@@ -52,7 +52,13 @@ async function main() {
     mint = g.usdcMint as PublicKey;
     console.log("Reusing Global:", global.toBase58(), "mint:", mint.toBase58());
   } else {
-    mint = await createMint(provider.connection, admin, admin.publicKey, null, 6);
+    mint = await createMint(
+      provider.connection,
+      admin,
+      admin.publicKey,
+      null,
+      6,
+    );
     console.log("demo-USDC mint:", mint.toBase58());
   }
 
@@ -77,12 +83,27 @@ async function main() {
   }
 
   const adminAta = (
-    await getOrCreateAssociatedTokenAccount(provider.connection, admin, mint, admin.publicKey)
+    await getOrCreateAssociatedTokenAccount(
+      provider.connection,
+      admin,
+      mint,
+      admin.publicKey,
+    )
   ).address;
   let mintState = await getMint(provider.connection, mint);
 
-  if (mintState.mintAuthority && mintState.mintAuthority.equals(admin.publicKey)) {
-    await mintTo(provider.connection, admin, mint, adminAta, admin, 10_000_000_000_000n);
+  if (
+    mintState.mintAuthority &&
+    mintState.mintAuthority.equals(admin.publicKey)
+  ) {
+    await mintTo(
+      provider.connection,
+      admin,
+      mint,
+      adminAta,
+      admin,
+      10_000_000_000_000n,
+    );
     try {
       await yieldPark.methods
         .seedReserve(new anchor.BN(1_000_000_000))
@@ -97,7 +118,10 @@ async function main() {
         .rpc();
       console.log("Reserve seeded (1000 demo-USDC)");
     } catch (e) {
-      console.log("seedReserve skipped:", String((e as Error).message ?? e).slice(0, 120));
+      console.log(
+        "seedReserve skipped:",
+        String((e as Error).message ?? e).slice(0, 120),
+      );
     }
   }
 
@@ -121,18 +145,24 @@ async function main() {
   // Hand the mint over to the program so the in-app faucet works without us signing.
   const mintAuthority = pdas.mintAuthority(aichain.programId);
   mintState = await getMint(provider.connection, mint);
-  if (mintState.mintAuthority && mintState.mintAuthority.equals(admin.publicKey)) {
+  if (
+    mintState.mintAuthority &&
+    mintState.mintAuthority.equals(admin.publicKey)
+  ) {
     await setAuthority(
       provider.connection,
       admin,
       mint,
       admin,
       AuthorityType.MintTokens,
-      mintAuthority
+      mintAuthority,
     );
     console.log("Mint authority ->", mintAuthority.toBase58());
   } else {
-    console.log("Mint authority already", mintState.mintAuthority?.toBase58() ?? "none");
+    console.log(
+      "Mint authority already",
+      mintState.mintAuthority?.toBase58() ?? "none",
+    );
   }
 
   const config: DeployConfig = {
@@ -149,7 +179,10 @@ async function main() {
     admin: admin.publicKey.toBase58(),
     fixtureSource: `${SPORTSDB_BASE}/lookupevent.php?id={idEvent}`,
   };
-  fs.writeFileSync(path.join(ROOT, "deploy-config.json"), JSON.stringify(config, null, 2));
+  fs.writeFileSync(
+    path.join(ROOT, "deploy-config.json"),
+    JSON.stringify(config, null, 2),
+  );
   console.log("Wrote deploy-config.json");
 
   fs.writeFileSync(
@@ -160,7 +193,7 @@ async function main() {
       `NEXT_PUBLIC_USDC_MINT=${mint.toBase58()}`,
       `NEXT_PUBLIC_GLOBAL_PDA=${global.toBase58()}`,
       "",
-    ].join("\n")
+    ].join("\n"),
   );
   console.log("Wrote app/.env.local");
 }

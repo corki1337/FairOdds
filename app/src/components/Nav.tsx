@@ -1,72 +1,49 @@
 "use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { usePathname } from "next/navigation";
 import { Faucet } from "./Faucet";
-
-const WalletMultiButton = dynamic(
+import { useLanguage } from "./Language";
+const WalletButton = dynamic(
   async () =>
     (await import("@solana/wallet-adapter-react-ui")).WalletMultiButton,
-  { ssr: false, loading: () => <span className="text-xs text-mute">…</span> }
+  { ssr: false },
 );
-
-function hasPhantomExtension(): boolean {
-  if (typeof window === "undefined") return false;
-  const w = window as Window & {
-    phantom?: { solana?: { isPhantom?: boolean } };
-    solana?: { isPhantom?: boolean };
-  };
-  return !!(w.phantom?.solana?.isPhantom || w.solana?.isPhantom);
-}
-
 export function Nav() {
-  const { connected, publicKey, wallets } = useWallet();
-  const [phantomOk, setPhantomOk] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    setPhantomOk(hasPhantomExtension());
-    const t = window.setInterval(() => setPhantomOk(hasPhantomExtension()), 1500);
-    return () => window.clearInterval(t);
-  }, []);
-
+  const { language, setLanguage, t } = useLanguage();
+  const path = usePathname();
   return (
-    <header className="sticky top-0 z-20 border-b border-white/10 bg-ink/80 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-        <div className="flex items-center gap-6">
-          <Link href="/" className="font-display text-xl tracking-tight text-accent">
-            FairOdds
+    <header className="site-header">
+      <div className="nav-inner">
+        <Link href="/" className="brand">
+          <span className="brand-mark">F</span>FairOdds
+          <span className="network">DEVNET</span>
+        </Link>
+        <nav aria-label={t("Main navigation", "Główna nawigacja")}>
+          <Link className={path === "/" ? "active" : ""} href="/">
+            {t("Matches", "Mecze")}
           </Link>
-          <nav className="flex gap-4 text-sm text-mute">
-            <Link href="/" className="hover:text-white">
-              Markets
-            </Link>
-            <Link href="/admin" className="hover:text-white">
-              Admin
-            </Link>
-          </nav>
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <div className="flex items-center gap-2">
-            <Faucet />
-            <WalletMultiButton />
-          </div>
-          {phantomOk === false && !connected && (
-            <p className="max-w-[220px] text-right text-[10px] leading-snug text-warn">
-              Brak rozszerzenia Phantom w <strong>tej</strong> przeglądarce.
-              Zainstaluj Phantom Extension (Chrome/Brave/Edge), odśwież stronę —
-              nie otwieraj phantom.app zamiast connect.
-            </p>
-          )}
-          {phantomOk && !connected && wallets.length === 0 && (
-            <p className="text-[10px] text-mute">Szukam portfela… odśwież (F5)</p>
-          )}
-          {connected && publicKey && (
-            <p className="text-[10px] text-mute">
-              {publicKey.toBase58().slice(0, 4)}…{publicKey.toBase58().slice(-4)} · Devnet
-            </p>
-          )}
+          <Link
+            className={path.startsWith("/seasons") ? "active" : ""}
+            href="/seasons"
+          >
+            {t("Season markets", "Rynki sezonowe")}
+          </Link>
+          <Link href="/admin">{t("Create", "Utwórz")}</Link>
+        </nav>
+        <div className="nav-actions">
+          <button
+            className="language-toggle"
+            onClick={() => setLanguage(language === "en" ? "pl" : "en")}
+            aria-label={t(
+              "Switch language to Polish",
+              "Zmień język na angielski",
+            )}
+          >
+            {language.toUpperCase()}
+          </button>
+          <Faucet />
+          <WalletButton />
         </div>
       </div>
     </header>

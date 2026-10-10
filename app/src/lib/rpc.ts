@@ -10,17 +10,25 @@ const DEFAULT_RPC = "https://api.devnet.solana.com";
 
 export function rpcEndpoints(): string[] {
   const primary =
-    process.env.NEXT_PUBLIC_RPC_URL || process.env.ANCHOR_PROVIDER_URL || DEFAULT_RPC;
-  const fallbacks = (process.env.NEXT_PUBLIC_RPC_FALLBACKS || process.env.RPC_FALLBACKS || "")
+    process.env.RPC_URL ||
+    process.env.NEXT_PUBLIC_RPC_URL ||
+    process.env.ANCHOR_PROVIDER_URL ||
+    DEFAULT_RPC;
+  const fallbacks = (
+    process.env.NEXT_PUBLIC_RPC_FALLBACKS ||
+    process.env.RPC_FALLBACKS ||
+    ""
+  )
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
   return [...new Set([primary, ...fallbacks, DEFAULT_RPC])];
 }
 
-export const RPC_URL = rpcEndpoints()[0];
+// Browser provider must never receive a server-only RPC credential.
+export const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || DEFAULT_RPC;
 
-const MAX_ATTEMPTS = 8;
+const MAX_ATTEMPTS = 4;
 
 function retryable(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
@@ -34,14 +42,21 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  */
 export async function retryingFetch(
   input: Parameters<typeof fetch>[0],
-  init?: Parameters<typeof fetch>[1]
+  init?: Parameters<typeof fetch>[1],
 ): Promise<Response> {
-  const endpoints = rpcEndpoints();
+  const endpoints =
+    typeof input === "string"
+      ? [...new Set([input, ...rpcEndpoints()])]
+      : rpcEndpoints();
   let lastError: unknown;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const url = typeof input === "string" ? endpoints[attempt % endpoints.length] : input;
+    const url =
+      typeof input === "string" ? endpoints[attempt % endpoints.length] : input;
     try {
-      const res = await fetch(url, init);
+      const res = await fetch(url, {
+        ...init,
+        signal: init?.signal ?? AbortSignal.timeout(10_000),
+      });
       if (!retryable(res.status)) return res;
       lastError = new Error(`RPC ${res.status}`);
     } catch (e) {
@@ -52,6 +67,13 @@ export async function retryingFetch(
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
-export function makeConnection(url = RPC_URL, config: ConnectionConfig = {}): Connection {
-  return new Connection(url, { commitment: "confirmed", fetch: retryingFetch, ...config });
+export function makeConnection(
+  url = rpcEndpoints()[0],
+  config: ConnectionConfig = {},
+): Connection {
+  return new Connection(url, {
+    commitment: "confirmed",
+    fetch: retryingFetch,
+    ...config,
+  });
 }

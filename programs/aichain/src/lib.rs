@@ -51,6 +51,10 @@ pub mod aichain {
         instructions::attach_secondary_feed::handler(ctx, source, source_ref)
     }
 
+    pub fn attach_market_policy(ctx: Context<AttachMarketPolicy>) -> Result<()> {
+        instructions::attach_market_policy::handler(ctx)
+    }
+
     pub fn place_bet(ctx: Context<PlaceBet>, amount: u64, team: u8) -> Result<()> {
         instructions::place_bet::handler(ctx, amount, team)
     }
@@ -82,6 +86,12 @@ pub mod aichain {
     pub fn withdraw_treasury(ctx: Context<WithdrawTreasury>, amount: u64) -> Result<()> {
         instructions::withdraw_treasury::handler(ctx, amount)
     }
+
+    pub fn initialize_season(ctx: Context<InitializeSeason>, params: SeasonParams) -> Result<()> { instructions::seasons::initialize(ctx, params) }
+    pub fn place_season_bet(ctx: Context<PlaceSeasonBet>, amount: u64, selected: u8) -> Result<()> { instructions::seasons::bet(ctx, amount, selected) }
+    pub fn resolve_season(ctx: Context<SettleSeason>) -> Result<()> { instructions::seasons::settle(ctx, false) }
+    pub fn cancel_season(ctx: Context<SettleSeason>) -> Result<()> { instructions::seasons::settle(ctx, true) }
+    pub fn claim_season(ctx: Context<ClaimSeason>) -> Result<()> { instructions::seasons::claim(ctx) }
 
     pub fn faucet_mint(ctx: Context<FaucetMint>) -> Result<()> {
         instructions::faucet_mint::handler(ctx)
