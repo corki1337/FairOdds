@@ -34,76 +34,96 @@ export function marketPda(programId: PublicKey, matchId: bigint | number) {
   const bn = BigInt(matchId);
   const buf = Buffer.alloc(8);
   buf.writeBigUInt64LE(bn);
-  return PublicKey.findProgramAddressSync([V, Buffer.from("market"), buf], programId);
+  return PublicKey.findProgramAddressSync(
+    [V, Buffer.from("market"), buf],
+    programId,
+  );
 }
 
 export function vaultPda(programId: PublicKey, market: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [V, Buffer.from("vault"), market.toBuffer()],
-    programId
+    programId,
   );
 }
 
 export function secondaryOraclePda(programId: PublicKey, market: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [V, Buffer.from("oracle2"), market.toBuffer()],
-    programId
+    programId,
   );
 }
 
-export function receiptPda(programId: PublicKey, market: PublicKey, user: PublicKey) {
+export function receiptPda(
+  programId: PublicKey,
+  market: PublicKey,
+  user: PublicKey,
+) {
   return PublicKey.findProgramAddressSync(
     [V, Buffer.from("receipt"), market.toBuffer(), user.toBuffer()],
-    programId
+    programId,
   );
 }
 
 export function globalPda(programId: PublicKey) {
-  return PublicKey.findProgramAddressSync([V, Buffer.from("global")], programId);
+  return PublicKey.findProgramAddressSync(
+    [V, Buffer.from("global")],
+    programId,
+  );
 }
 
 /** Switchboard feed authority PDA; the program never signs with it, so feeds are frozen. */
 export function feedLockPda(programId: PublicKey) {
-  return PublicKey.findProgramAddressSync([V, Buffer.from("feed-lock")], programId);
+  return PublicKey.findProgramAddressSync(
+    [V, Buffer.from("feed-lock")],
+    programId,
+  );
 }
 
 /** Holds the demo-USDC mint authority, so the faucet needs no human signer. */
 export function mintAuthorityPda(programId: PublicKey) {
-  return PublicKey.findProgramAddressSync([V, Buffer.from("mint-auth")], programId);
+  return PublicKey.findProgramAddressSync(
+    [V, Buffer.from("mint-auth")],
+    programId,
+  );
 }
 
 export function faucetReceiptPda(programId: PublicKey, user: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [V, Buffer.from("faucet"), user.toBuffer()],
-    programId
+    programId,
   );
 }
 
 export function parkPda(programId: PublicKey, mint: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("park"), mint.toBuffer()],
-    programId
+    programId,
   );
 }
 
-export function positionPda(yieldProgram: PublicKey, park: PublicKey, owner: PublicKey) {
+export function positionPda(
+  yieldProgram: PublicKey,
+  park: PublicKey,
+  owner: PublicKey,
+) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("position"), park.toBuffer(), owner.toBuffer()],
-    yieldProgram
+    yieldProgram,
   );
 }
 
 export function parkVaultPda(yieldProgram: PublicKey, park: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("park-vault"), park.toBuffer()],
-    yieldProgram
+    yieldProgram,
   );
 }
 
 export function treasuryPda(programId: PublicKey, global: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [V, Buffer.from("treasury"), global.toBuffer()],
-    programId
+    programId,
   );
 }
 
@@ -119,3 +139,10 @@ export function impliedOdds(poolSelected: number, total: number): number {
 }
 
 export { AIchAIN_PROGRAM_ID, YIELD_PARK_PROGRAM_ID };
+
+export function policyPda(programId: PublicKey, market: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [V, Buffer.from("policy"), market.toBuffer()],
+    programId,
+  );
+}

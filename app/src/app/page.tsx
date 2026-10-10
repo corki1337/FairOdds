@@ -1,531 +1,241 @@
 "use client";
-
-import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useAichainProgram } from "@/lib/hooks/useProgram";
-import { decodeTeamName, impliedOdds, statusKey } from "@/lib/anchor";
-import {
-  CATEGORY_NAV,
-  SOURCE_LABELS,
-  scoreLabel,
-  type FixtureCategoryId,
-  type FixtureView,
-} from "@/lib/fixtures";
-
-function sourceNames(f: FixtureView) {
-  return (Object.keys(f.sources) as (keyof typeof SOURCE_LABELS)[])
-    .map((s) => SOURCE_LABELS[s])
-    .join(", ");
-}
-
-type MarketRow = {
-  publicKey: string;
-  matchId: string;
-  teamA: string;
-  teamB: string;
-  poolA: number;
-  poolB: number;
-  status: string;
-  startTime: number;
-};
-
-type FixturesResponse = {
-  provider: string;
-  lookupUrl: string;
-  categories: { id: FixtureCategoryId; label: string }[];
-  leagues: string[];
-  fixtures: FixtureView[];
-  total: number;
-  meta?: { count?: number; upcoming?: number; fetchedAt?: string };
-};
-
-type SortKey = "time" | "time_desc" | "league";
-
-function formatKickoff(ts: number) {
-  const d = new Date(ts * 1000);
-  const now = new Date();
-  const sameDay = d.toDateString() === now.toDateString();
-  return sameDay
-    ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : d.toLocaleString([], {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-}
-
-function MatchRow({
-  timeLabel,
-  league,
-  title,
-  subtitle,
-  odds,
-  statusLabel,
-  href,
-  accent,
-  format,
-}: {
-  timeLabel: string;
-  league: string;
-  title: string;
-  subtitle: string;
-  /** Pool-implied payout multipliers, or null for fixtures with no market yet. */
-  odds: { a: number; b: number } | null;
-  statusLabel: string;
-  href?: string;
-  accent?: boolean;
-  format?: string;
-}) {
-  const className = `grid grid-cols-1 gap-2 px-4 py-3 transition md:grid-cols-[72px_1fr_88px_88px_110px] md:items-center md:gap-2 ${
-    href ? "hover:bg-white/[0.06] cursor-pointer" : "opacity-60"
-  } ${accent ? "bg-accent/5" : ""}`;
-
-  const cell = (v: number | null) => (
-    <div className="rounded-md bg-ink px-2 py-2 text-center text-sm font-medium text-accent">
-      {v === null ? <span className="text-mute">—</span> : v.toFixed(2)}
-    </div>
-  );
-
-  const inner = (
-    <>
-      <div className="text-xs text-mute md:pt-1">
-        <div className="font-medium text-white/90">{timeLabel}</div>
-        <div className="truncate">{league}</div>
-      </div>
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="truncate font-display text-base">{title}</span>
-          {format && (
-            <span className="shrink-0 rounded border border-accent/40 bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">
-              {format}
-            </span>
-          )}
-        </div>
-        <div className="truncate text-[11px] text-mute">{subtitle}</div>
-      </div>
-      {cell(odds ? odds.a : null)}
-      {cell(odds ? odds.b : null)}
-      <div className="text-right text-[10px] uppercase tracking-wide">
-        <span
-          className={
-            href
-              ? statusLabel.includes("trwa") || statusLabel.includes("W grze")
-                ? "font-semibold text-amber-400"
-                : "text-accent"
-              : "text-mute"
-          }
-        >
-          {statusLabel}
-        </span>
-      </div>
-    </>
-  );
-
-  if (href) {
-    return (
-      <li>
-        <Link href={href} className={className}>
-          {inner}
-        </Link>
-      </li>
-    );
-  }
-  return <li className={className}>{inner}</li>;
-}
-
-export default function HomePage() {
-  const program = useAichainProgram();
-  const [category, setCategory] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("scheduled");
-  const [sort, setSort] = useState<SortKey>("time");
-  const [league, setLeague] = useState<string>("");
-  const [q, setQ] = useState("");
-  const [browseCatalog, setBrowseCatalog] = useState(false);
-
-  const { data: catalog, isLoading } = useQuery({
-    queryKey: ["fixtures", category, statusFilter, sort, league, q],
-    queryFn: async (): Promise<FixturesResponse> => {
-      const params = new URLSearchParams({
-        limit: "150",
-        sort,
-        status: statusFilter,
-      });
-      if (category !== "all") params.set("category", category);
-      if (league) params.set("league", league);
-      if (q.trim()) params.set("q", q.trim());
-      const res = await fetch(`/api/fixtures?${params}`);
-      if (!res.ok) throw new Error("fixtures failed");
-      return res.json();
-    },
-    refetchInterval: 30_000,
+import { useLanguage } from "@/components/Language";
+import { getJson } from "@/lib/client";
+import type { MatchView } from "@/lib/views";
+export default function Home() {
+  const { t, language } = useLanguage();
+  const [status, setStatus] = useState("open"),
+    [search, setSearch] = useState("");
+  const q = useQuery({
+    queryKey: ["markets", status],
+    queryFn: () =>
+      getJson<{ markets: MatchView[]; total: number }>(
+        `/api/v1/markets?limit=100${status ? `&status=${status}` : ""}`,
+      ),
+    refetchInterval: 30000,
   });
-
-  const { data: markets = [], isLoading: marketsLoading } = useQuery({
-    queryKey: ["markets", program?.programId.toBase58()],
-    queryFn: async (): Promise<MarketRow[]> => {
-      if (!program) return [];
-      // v1 markets share the discriminator but not the layout; only decode v2-sized accounts.
-      const all = await program.account.marketState.all([
-        { dataSize: program.account.marketState.size },
-      ]);
-      return all.map((m) => ({
-        publicKey: m.publicKey.toBase58(),
-        matchId: m.account.matchId.toString(),
-        teamA: decodeTeamName(m.account.teamA),
-        teamB: decodeTeamName(m.account.teamB),
-        poolA: Number(m.account.poolTeamA) / 1e6,
-        poolB: Number(m.account.poolTeamB) / 1e6,
-        status: statusKey(m.account.status),
-        startTime: Number(m.account.startTime),
-      }));
-    },
-    enabled: !!program,
-    refetchInterval: 5000,
+  const fixtures = useQuery({
+    queryKey: ["fixtures"],
+    queryFn: () => getJson<{ fixtures: any[] }>("/api/fixtures?limit=24"),
+    staleTime: 60000,
   });
-
-  const onChainByMatchId = useMemo(() => {
-    const map = new Map<string, MarketRow>();
-    for (const m of markets) map.set(m.matchId, m);
-    return map;
-  }, [markets]);
-
-  const openMarkets = useMemo(() => {
-    return [...markets]
-      .filter((m) => m.status === "open")
-      .sort((a, b) => a.startTime - b.startTime);
-  }, [markets]);
-
-  const liveMarkets = useMemo(() => {
-    return [...markets]
-      .filter((m) => m.status === "locked")
-      .sort((a, b) => a.startTime - b.startTime);
-  }, [markets]);
-
-  const resolvedMarkets = useMemo(() => {
-    return [...markets]
-      .filter((m) => m.status === "resolved" || m.status === "cancelled")
-      .sort((a, b) => b.startTime - a.startTime);
-  }, [markets]);
-
-  const catalogRows = useMemo(() => {
-    return catalog?.fixtures ?? [];
-  }, [catalog]);
-
+  const rows = (q.data?.markets ?? []).filter(
+    (m) =>
+      m.teams.join(" ").toLowerCase().includes(search.toLowerCase()) ||
+      m.id.includes(search),
+  );
   return (
-    <div className="space-y-6">
-      <header className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.2em] text-mute">
-          Bukmacher pari-mutuel · Solana Devnet
-        </p>
-        <h1 className="font-display text-3xl font-bold md:text-4xl">
-          Obstawiaj <span className="text-accent">prawdziwe mecze</span>
-        </h1>
-        <p className="max-w-2xl text-sm text-mute">
-          Zakłady przyjmujemy do pierwszego gwizdka. Kursy wynikają wyłącznie z podziału puli, a
-          wynik meczu zaciągają oracle Switchboard prosto z{" "}
-          <span className="text-white">TheSportsDB</span> oraz <span className="text-white">PandaScore</span> — nasz serwer nie bierze udziału w
-          rozliczeniu. Remis = zwrot stawek.
-        </p>
-      </header>
-
-      {/* PRIMARY: real bettable markets */}
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h2 className="font-display text-xl font-semibold">Rynki on-chain</h2>
-            <p className="text-xs text-mute">
-              {marketsLoading
-                ? "Ładowanie z Devnet…"
-                : openMarkets.length > 0 || liveMarkets.length > 0
-                  ? `${openMarkets.length} do obstawienia przed kickoffem${
-                      liveMarkets.length > 0 ? ` · ${liveMarkets.length} w grze (kapitał w Yield Park)` : ""
-                    }`
-                  : markets.length > 0
-                    ? "Brak otwartych rynków (wszystkie rozliczone). Admin: nowe rynki."
-                    : "Brak rynków on-chain. Admin → fixture → Initialize, albo scripts/create-from-fixture.ts"}
-            </p>
-          </div>
-          <Link href="/admin" className="text-xs text-accent underline">
-            Admin: utwórz rynek
-          </Link>
-        </div>
-
-        <div className="overflow-hidden rounded-xl border border-accent/30">
-          <div className="hidden grid-cols-[72px_1fr_88px_88px_110px] gap-2 border-b border-white/10 bg-ink/80 px-4 py-2 text-[10px] uppercase tracking-wider text-mute md:grid">
-            <span>Status</span>
-            <span>Mecz</span>
-            <span className="text-center">1</span>
-            <span className="text-center">2</span>
-            <span className="text-right">Akcja</span>
-          </div>
-          <ul className="divide-y divide-white/5 bg-panel/60">
-            {openMarkets.map((m) => {
-              const total = m.poolA + m.poolB;
-              const fix = catalogRows.find((f) => f.matchId === m.matchId);
-              return (
-                <MatchRow
-                  key={m.publicKey}
-                  accent
-                  href={`/markets/${m.matchId}`}
-                  timeLabel={formatKickoff(m.startTime)}
-                  league={fix?.league || "on-chain"}
-                  format={fix?.format}
-                  title={`${m.teamA} – ${m.teamB}`}
-                  subtitle={`#${m.matchId} · pula ${total.toFixed(0)} USDC · zakłady otwarte`}
-                  odds={{
-                    a: impliedOdds(m.poolA * 1e6 || 1, total * 1e6 || 1),
-                    b: impliedOdds(m.poolB * 1e6 || 1, total * 1e6 || 1),
-                  }}
-                  statusLabel="Obstaw →"
-                />
-              );
-            })}
-            {liveMarkets.map((m) => {
-              const total = m.poolA + m.poolB;
-              const fix = catalogRows.find((f) => f.matchId === m.matchId);
-              return (
-                <MatchRow
-                  key={m.publicKey}
-                  href={`/markets/${m.matchId}`}
-                  timeLabel="W grze"
-                  league={fix?.league || "on-chain"}
-                  format={fix?.format}
-                  title={`${m.teamA} – ${m.teamB}`}
-                  subtitle={`#${m.matchId} · pula ${total.toFixed(0)} USDC · trwa mecz (kapitał w Yield Park)`}
-                  odds={{
-                    a: impliedOdds(m.poolA * 1e6 || 1, total * 1e6 || 1),
-                    b: impliedOdds(m.poolB * 1e6 || 1, total * 1e6 || 1),
-                  }}
-                  statusLabel="Mecz trwa"
-                />
-              );
-            })}
-            {!marketsLoading && openMarkets.length === 0 && liveMarkets.length === 0 && (
-              <li className="px-4 py-8 text-center text-sm text-mute">
-                Nie ma otwartego rynku do obstawienia.{" "}
-                <Link href="/admin" className="text-accent underline">
-                  Utwórz w Admin
-                </Link>
-              </li>
+    <>
+      <section className="hero">
+        <div>
+          <p className="eyebrow">
+            {t("SPORTS. SHARED POOLS. SOLANA.", "SPORT. WSPÓLNE PULE. SOLANA.")}
+          </p>
+          <h1>
+            {t("Your side.\nYour stake.", "Twoja strona.\nTwoja stawka.")}
+          </h1>
+          <p className="hero-copy">
+            {t(
+              "Real matches, transparent pools and results verified by Switchboard. A wallet is all you need.",
+              "Prawdziwe mecze, przejrzyste pule i wyniki weryfikowane przez Switchboard. Wystarczy portfel.",
             )}
-          </ul>
+          </p>
+          <a className="primary button" href="#markets">
+            {t("Explore matches", "Przeglądaj mecze")} <span>↗</span>
+          </a>
         </div>
-
-        {resolvedMarkets.length > 0 && (
-          <details className="rounded-xl border border-white/10 bg-panel/40">
-            <summary className="cursor-pointer px-4 py-3 text-sm text-mute">
-              Rozliczone / archiwalne ({resolvedMarkets.length})
-            </summary>
-            <ul className="divide-y divide-white/5 border-t border-white/10">
-              {resolvedMarkets.map((m) => {
-                const total = m.poolA + m.poolB;
-                const fix = catalogRows.find((f) => f.matchId === m.matchId);
-                return (
-                  <MatchRow
-                    key={m.publicKey}
-                    href={`/markets/${m.matchId}`}
-                    timeLabel={formatKickoff(m.startTime)}
-                    league={fix?.league || "on-chain"}
-                    format={fix?.format}
-                    title={`${m.teamA} – ${m.teamB}`}
-                    subtitle={`#${m.matchId} · ${m.status}`}
-                    odds={{
-                      a: impliedOdds(m.poolA * 1e6 || 1, total * 1e6 || 1),
-                      b: impliedOdds(m.poolB * 1e6 || 1, total * 1e6 || 1),
-                    }}
-                    statusLabel={m.status}
-                  />
-                );
-              })}
-            </ul>
-          </details>
-        )}
+        <aside className="hero-aside">
+          <p className="eyebrow">
+            {t("THE RULES ARE ON-CHAIN", "ZASADY ZAPISANE ON-CHAIN")}
+          </p>
+          <strong>
+            0.5<span>%</span>
+          </strong>
+          <p>
+            {t(
+              "of positive profit on new match markets",
+              "dodatniego zysku w nowych rynkach meczów",
+            )}
+          </p>
+          <div className="divider" />
+          <p>
+            {t(
+              "Season markets: 0% fee. Protocol revenue comes from demo yield.",
+              "Rynki sezonowe: 0% prowizji. Przychód protokołu z demonstracyjnego yieldu.",
+            )}
+          </p>
+          <small>
+            {t(
+              "Devnet only · demo-USDC has no monetary value",
+              "Tylko devnet · demo-USDC nie ma wartości pieniężnej",
+            )}
+          </small>
+        </aside>
       </section>
-
-      <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
-        <aside className="h-fit rounded-xl border border-white/10 bg-panel/80 p-3 lg:sticky lg:top-20">
-          <p className="mb-2 px-2 text-[10px] uppercase tracking-wider text-mute">Dyscyplina</p>
-          <nav className="flex flex-row flex-wrap gap-1 lg:flex-col lg:flex-nowrap">
-            {CATEGORY_NAV.map((c) => (
+      <section id="markets">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">{t("THE MATCH BOARD", "TABLICA MECZÓW")}</p>
+            <h2>{t("Pick your match", "Wybierz swój mecz")}</h2>
+          </div>
+          <span className="muted">
+            {q.data?.total ?? "—"} {t("markets", "rynków")}
+          </span>
+        </div>
+        <div className="toolbar">
+          <div className="tabs">
+            {[
+              ["open", t("Upcoming", "Nadchodzące")],
+              ["locked", t("In play", "W grze")],
+              ["resolved", t("Settled", "Rozliczone")],
+              ["cancelled", t("Refunds", "Zwroty")],
+              ["", t("All", "Wszystkie")],
+            ].map(([id, label]) => (
               <button
-                key={c.id}
-                type="button"
-                onClick={() => {
-                  setCategory(c.id);
-                  setLeague("");
-                  setBrowseCatalog(true);
-                }}
-                className={`rounded-lg px-3 py-2 text-left text-sm transition ${
-                  browseCatalog && category === c.id
-                    ? "bg-accent font-medium text-ink"
-                    : "text-mute hover:bg-white/5 hover:text-white"
-                }`}
+                key={id}
+                className={status === id ? "selected" : ""}
+                onClick={() => setStatus(id)}
               >
-                {c.label}
+                {label}
               </button>
             ))}
-          </nav>
-          <div className="mt-4 border-t border-white/10 pt-3">
-            <p className="mb-2 px-2 text-[10px] uppercase tracking-wider text-mute">Status</p>
-            <div className="flex flex-col gap-1">
-              {(
-                [
-                  ["scheduled", "Nadchodzące"],
-                  ["live", "Trwające"],
-                  ["finished", "Zakończone"],
-                  ["all", "Wszystkie"],
-                ] as const
-              ).map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => {
-                    setStatusFilter(id);
-                    setBrowseCatalog(true);
-                  }}
-                  className={`rounded-lg px-3 py-1.5 text-left text-sm ${
-                    statusFilter === id ? "bg-white/15 text-white" : "text-mute hover:bg-white/5"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
           </div>
-        </aside>
-
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="font-display text-xl font-semibold">Terminarz</h2>
-              <p className="text-xs text-mute">
-                Prawdziwe mecze z TheSportsDB ({catalog?.meta?.count ?? 0} w katalogu). Zielone
-                „Obstaw” = rynek już istnieje on-chain.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setBrowseCatalog((v) => !v)}
-              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-mute hover:text-white"
-            >
-              {browseCatalog ? "Zwiń katalog" : "Pokaż katalog"}
-            </button>
-          </div>
-
-          {browseCatalog && (
-            <>
-              <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-panel/60 p-3 md:flex-row md:flex-wrap md:items-center">
-                <label className="flex min-w-[160px] flex-1 flex-col gap-1 text-xs text-mute">
-                  Szukaj
-                  <input
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    placeholder="drużyna, liga, ID…"
-                    className="rounded-lg border border-white/10 bg-ink px-3 py-2 text-sm text-white"
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-xs text-mute">
-                  Sortowanie
-                  <select
-                    value={sort}
-                    onChange={(e) => setSort(e.target.value as SortKey)}
-                    className="rounded-lg border border-white/10 bg-ink px-3 py-2 text-sm text-white"
-                  >
-                    <option value="time">Czas (najbliższe)</option>
-                    <option value="time_desc">Czas (najnowsze)</option>
-                    <option value="league">Liga A–Z</option>
-                  </select>
-                </label>
-                <label className="flex flex-col gap-1 text-xs text-mute">
-                  Liga
-                  <select
-                    value={league}
-                    onChange={(e) => setLeague(e.target.value)}
-                    className="rounded-lg border border-white/10 bg-ink px-3 py-2 text-sm text-white"
-                  >
-                    <option value="">Wszystkie ligi</option>
-                    {(catalog?.leagues ?? []).map((l) => (
-                      <option key={l} value={l}>
-                        {l}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              <p className="text-xs text-mute">
-                {isLoading
-                  ? "Ładowanie…"
-                  : `${catalogRows.length} z ${catalog?.total ?? 0} · on-chain w tym widoku: ${
-                      catalogRows.filter((f) => onChainByMatchId.has(f.matchId)).length
-                    }`}
-              </p>
-
-              <div className="overflow-hidden rounded-xl border border-white/10">
-                <div className="hidden grid-cols-[72px_1fr_88px_88px_110px] gap-2 border-b border-white/10 bg-ink/80 px-4 py-2 text-[10px] uppercase tracking-wider text-mute md:grid">
-                  <span>Czas</span>
-                  <span>Mecz</span>
-                  <span className="text-center">1</span>
-                  <span className="text-center">2</span>
-                  <span className="text-right">Status</span>
-                </div>
-                <ul className="divide-y divide-white/5 bg-panel/40">
-                  {catalogRows.map((f) => {
-                    const onChain = onChainByMatchId.get(f.matchId);
-                    const pool = onChain ? onChain.poolA + onChain.poolB : 0;
-                    const score = scoreLabel(f);
-                    return (
-                      <MatchRow
-                        key={f.key}
-                        href={onChain ? `/markets/${f.matchId}` : undefined}
-                        accent={!!onChain}
-                        timeLabel={formatKickoff(f.startTime)}
-                        league={f.league}
-                        format={f.format}
-                        title={`${f.teamA} – ${f.teamB}`}
-                        subtitle={[
-                          f.marketable ? `#${f.matchId}` : `tylko ${sourceNames(f)}`,
-                          score && `wynik ${score}`,
-                          onChain
-                            ? `pula ${pool.toFixed(0)} USDC`
-                            : f.marketable
-                              ? "brak rynku on-chain"
-                              : "bez rynku: brak publicznego źródła do rozliczenia",
-                          f.sources.openligadb && "2 źródła wyniku",
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                        odds={
-                          onChain
-                            ? {
-                                a: impliedOdds(onChain.poolA * 1e6 || 1, pool * 1e6 || 1),
-                                b: impliedOdds(onChain.poolB * 1e6 || 1, pool * 1e6 || 1),
-                              }
-                            : null
-                        }
-                        statusLabel={
-                          onChain
-                            ? onChain.status === "open"
-                              ? "Obstaw →"
-                              : onChain.status
-                            : f.status
-                        }
-                      />
-                    );
-                  })}
-                  {!isLoading && catalogRows.length === 0 && (
-                    <li className="px-4 py-8 text-center text-sm text-mute">
-                      Brak meczów dla tych filtrów.
-                    </li>
-                  )}
-                </ul>
-              </div>
-            </>
-          )}
+          <input
+            aria-label={t("Search matches", "Szukaj meczów")}
+            placeholder={t(
+              "Search team or match ID…",
+              "Szukaj drużyny lub numeru…",
+            )}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-      </div>
-    </div>
+        {q.isPending && (
+          <p className="notice">
+            {t("Loading on-chain markets…", "Wczytywanie rynków on-chain…")}
+          </p>
+        )}
+        {q.isError && (
+          <div className="notice error">
+            {t(
+              "The network is unavailable. Your funds remain on-chain.",
+              "Sieć jest niedostępna. Środki pozostają on-chain.",
+            )}{" "}
+            <button onClick={() => q.refetch()}>{t("Retry", "Ponów")}</button>
+          </div>
+        )}
+        {q.isSuccess && rows.length === 0 && (
+          <p className="notice">
+            {t(
+              "No matches in this view. Try another filter.",
+              "Brak meczów w tym widoku. Zmień filtr.",
+            )}
+          </p>
+        )}
+        <div className="market-grid">
+          {rows.map((m) => (
+            <Link href={`/markets/${m.id}`} className="market-card" key={m.id}>
+              <div className="card-top">
+                <span className={`status ${m.status}`}>
+                  {t(
+                    m.status,
+                    (
+                      {
+                        open: "Otwarty",
+                        locked: "W grze",
+                        resolved: "Rozliczony",
+                        cancelled: "Zwrot",
+                      } as any
+                    )[m.status],
+                  )}
+                </span>
+                <small>#{m.id}</small>
+              </div>
+              <p className="kickoff">
+                {new Date(m.startTime * 1000).toLocaleString(
+                  language === "pl" ? "pl-PL" : "en-GB",
+                  { dateStyle: "medium", timeStyle: "short" },
+                )}
+              </p>
+              <h3>
+                {m.teams[0]}
+                <span className="versus">vs</span>
+                {m.teams[1]}
+              </h3>
+              <div className="pool-pair">
+                {m.teams.map((team, i) => (
+                  <div key={i}>
+                    <small>{team}</small>
+                    <strong>
+                      {Number(m.pools[i]).toLocaleString(language)}{" "}
+                      <small>USDC</small>
+                    </strong>
+                    <span>
+                      {m.odds[i] === null ? "—" : `${m.odds[i]!.toFixed(2)}×`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="card-bottom">
+                {m.waitingForCounterBets ? (
+                  <span>
+                    {t("Waiting for counter-bets", "Czekamy na drugą stronę")}
+                  </span>
+                ) : (
+                  <span>{t("View pool", "Zobacz pulę")} ↗</span>
+                )}
+                <small>
+                  {m.feeBps / 100}% {t("profit fee", "od zysku")}
+                </small>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+      {fixtures.data && (
+        <section className="catalog-section">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">
+                {t("FROM THE FIXTURE CATALOG", "Z KATALOGU WYDARZEŃ")}
+              </p>
+              <h2>{t("On the horizon", "Na horyzoncie")}</h2>
+            </div>
+          </div>
+          <div className="fixture-list">
+            {fixtures.data.fixtures.map((f) => (
+              <div key={f.id} className="fixture-row">
+                <div>
+                  <small>{f.league}</small>
+                  <strong>
+                    {f.teamA} — {f.teamB}
+                  </strong>
+                </div>
+                <span>
+                  {new Date(f.startTime * 1000).toLocaleDateString(language)}
+                  <small>
+                    {f.timeTBD
+                      ? t("Time to be confirmed", "Godzina do ustalenia")
+                      : new Date(f.startTime * 1000).toLocaleTimeString(
+                          language,
+                          { hour: "2-digit", minute: "2-digit" },
+                        )}
+                  </small>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+      <footer>
+        {t(
+          "Pool odds change until betting closes. Draws and cancellations return stakes. Network fees apply.",
+          "Kursy zmieniają się do zamknięcia zakładów. Remisy i anulowania oznaczają zwrot stawek. Obowiązują opłaty sieciowe.",
+        )}
+      </footer>
+    </>
   );
 }

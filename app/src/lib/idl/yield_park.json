@@ -1,66 +1,271 @@
 {
   "address": "6XUoUhwMgdurDYu47VKEpqAKczbkY36H22xHr9o9DNHS",
-  "metadata": { "name": "yield_park", "version": "0.1.0", "spec": "0.1.0" },
+  "metadata": {
+    "name": "yield_park",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Micro yield protocol for Aichain idle capital"
+  },
   "instructions": [
     {
       "name": "initialize_park",
-      "discriminator": [208, 219, 34, 196, 184, 187, 241, 146],
-      "accounts": [
-        { "name": "authority", "writable": true, "signer": true },
-        { "name": "mint" },
-        { "name": "park", "writable": true },
-        { "name": "park_vault", "writable": true },
-        { "name": "system_program" },
-        { "name": "token_program" },
-        { "name": "rent" }
+      "discriminator": [
+        208,
+        219,
+        34,
+        196,
+        184,
+        187,
+        241,
+        146
       ],
-      "args": [{ "name": "apr_bps", "type": "u16" }]
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "park",
+          "writable": true
+        },
+        {
+          "name": "park_vault",
+          "writable": true
+        },
+        {
+          "name": "system_program"
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "rent"
+        }
+      ],
+      "args": [
+        {
+          "name": "apr_bps",
+          "type": "u16"
+        }
+      ]
     },
     {
       "name": "seed_reserve",
-      "discriminator": [87, 67, 157, 53, 250, 196, 116, 28],
-      "accounts": [
-        { "name": "authority", "signer": true },
-        { "name": "park", "writable": true },
-        { "name": "mint" },
-        { "name": "authority_ata", "writable": true },
-        { "name": "park_vault", "writable": true },
-        { "name": "token_program" }
+      "discriminator": [
+        87,
+        67,
+        157,
+        53,
+        250,
+        196,
+        116,
+        28
       ],
-      "args": [{ "name": "amount", "type": "u64" }]
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "park",
+          "writable": true
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "authority_ata",
+          "writable": true
+        },
+        {
+          "name": "park_vault",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
     },
     {
       "name": "deposit",
-      "discriminator": [242, 35, 198, 137, 82, 225, 242, 182],
-      "accounts": [
-        { "name": "owner", "signer": true },
-        { "name": "payer", "writable": true, "signer": true },
-        { "name": "park", "writable": true },
-        { "name": "owner_ata", "writable": true },
-        { "name": "park_vault", "writable": true },
-        { "name": "position", "writable": true },
-        { "name": "system_program" },
-        { "name": "token_program" }
+      "discriminator": [
+        242,
+        35,
+        198,
+        137,
+        82,
+        225,
+        242,
+        182
       ],
-      "args": [{ "name": "amount", "type": "u64" }]
+      "accounts": [
+        {
+          "name": "owner",
+          "docs": [
+            "Position owner (can be a PDA signer via CPI)."
+          ],
+          "signer": true
+        },
+        {
+          "name": "payer",
+          "docs": [
+            "Pays rent for position account when first created."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "park",
+          "writable": true
+        },
+        {
+          "name": "owner_ata",
+          "writable": true
+        },
+        {
+          "name": "park_vault",
+          "writable": true
+        },
+        {
+          "name": "position",
+          "writable": true
+        },
+        {
+          "name": "system_program"
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "cover_principal_dust",
+      "discriminator": [
+        23,
+        129,
+        248,
+        168,
+        25,
+        41,
+        83,
+        159
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "signer": true
+        },
+        {
+          "name": "park"
+        },
+        {
+          "name": "owner_ata",
+          "writable": true
+        },
+        {
+          "name": "park_vault",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
     },
     {
       "name": "withdraw",
-      "discriminator": [183, 18, 70, 156, 148, 109, 161, 34],
-      "accounts": [
-        { "name": "owner", "writable": true, "signer": true },
-        { "name": "park", "writable": true },
-        { "name": "owner_ata", "writable": true },
-        { "name": "park_vault", "writable": true },
-        { "name": "position", "writable": true },
-        { "name": "token_program" }
+      "discriminator": [
+        183,
+        18,
+        70,
+        156,
+        148,
+        109,
+        161,
+        34
       ],
-      "args": [{ "name": "shares", "type": "u64" }]
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "park",
+          "writable": true
+        },
+        {
+          "name": "owner_ata",
+          "writable": true
+        },
+        {
+          "name": "park_vault",
+          "writable": true
+        },
+        {
+          "name": "position",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "shares",
+          "type": "u64"
+        }
+      ]
     }
   ],
   "accounts": [
-    { "name": "Park", "discriminator": [245, 32, 219, 159, 141, 141, 230, 177] },
-    { "name": "Position", "discriminator": [170, 188, 143, 228, 122, 64, 247, 208] }
+    {
+      "name": "Park",
+      "discriminator": [
+        245,
+        32,
+        219,
+        159,
+        141,
+        141,
+        230,
+        177
+      ]
+    },
+    {
+      "name": "Position",
+      "discriminator": [
+        170,
+        188,
+        143,
+        228,
+        122,
+        64,
+        247,
+        208
+      ]
+    }
   ],
   "types": [
     {
@@ -68,16 +273,46 @@
       "type": {
         "kind": "struct",
         "fields": [
-          { "name": "authority", "type": "pubkey" },
-          { "name": "mint", "type": "pubkey" },
-          { "name": "vault", "type": "pubkey" },
-          { "name": "total_shares", "type": "u64" },
-          { "name": "total_deposits", "type": "u64" },
-          { "name": "reserve_seeded", "type": "u64" },
-          { "name": "apr_bps", "type": "u16" },
-          { "name": "last_update_ts", "type": "i64" },
-          { "name": "bump", "type": "u8" },
-          { "name": "vault_bump", "type": "u8" }
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_shares",
+            "type": "u64"
+          },
+          {
+            "name": "total_deposits",
+            "type": "u64"
+          },
+          {
+            "name": "reserve_seeded",
+            "type": "u64"
+          },
+          {
+            "name": "apr_bps",
+            "type": "u16"
+          },
+          {
+            "name": "last_update_ts",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "vault_bump",
+            "type": "u8"
+          }
         ]
       }
     },
@@ -86,12 +321,57 @@
       "type": {
         "kind": "struct",
         "fields": [
-          { "name": "owner", "type": "pubkey" },
-          { "name": "park", "type": "pubkey" },
-          { "name": "shares", "type": "u64" },
-          { "name": "bump", "type": "u8" }
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "park",
+            "type": "pubkey"
+          },
+          {
+            "name": "shares",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
         ]
       }
     }
-  ]
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "MathOverflow",
+      "msg": "Math overflow"
+    },
+    {
+      "code": 6001,
+      "name": "ZeroAmount",
+      "msg": "Amount must be greater than zero"
+    },
+    {
+      "code": 6002,
+      "name": "InsufficientShares",
+      "msg": "Insufficient shares"
+    },
+    {
+      "code": 6003,
+      "name": "InsufficientLiquidity",
+      "msg": "Insufficient vault liquidity"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidApr",
+      "msg": "Invalid APR"
+    },
+    {
+      "code": 6005,
+      "name": "InvalidSettlementOwner",
+      "msg": "Invalid settlement PDA"
+    }
+  ],
+  "events": []
 }

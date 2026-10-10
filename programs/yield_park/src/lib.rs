@@ -24,6 +24,10 @@ pub mod yield_park {
         instructions::deposit::handler(ctx, amount)
     }
 
+    pub fn cover_principal_dust(ctx: Context<CoverPrincipalDust>, amount: u64) -> Result<()> {
+        instructions::cover_principal_dust::handler(ctx, amount)
+    }
+
     pub fn withdraw(ctx: Context<Withdraw>, shares: u64) -> Result<()> {
         instructions::withdraw::handler(ctx, shares)
     }

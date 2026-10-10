@@ -20,6 +20,7 @@ type Match = {
   id: number;
   begin_at: string | null;
   scheduled_at: string | null;
+  original_scheduled_at?: string | null;
   status: string;
   forfeit: boolean;
   number_of_games?: number | null;
@@ -34,7 +35,9 @@ const token = () => process.env.PANDASCORE_TOKEN || "";
 export const enabled = () => token().length > 0;
 
 const get = <T>(p: string) =>
-  getJson<T>(`${BASE}${p}${p.includes("?") ? "&" : "?"}token=${token()}`, { paceMs: 4_000 });
+  getJson<T>(`${BASE}${p}${p.includes("?") ? "&" : "?"}token=${token()}`, {
+    paceMs: 4_000,
+  });
 
 const SLUG_TO_CATEGORY: Record<string, FixtureCategoryId> = {
   lol: "esports_lol",
@@ -54,18 +57,31 @@ export const categoryOf = (slug?: string | null): FixtureCategoryId =>
 export function toFixture(m: Match): SourceFixture | null {
   const when =
     m.status === "running" || m.status === "finished"
-      ? m.begin_at ?? m.scheduled_at
-      : m.scheduled_at ?? m.begin_at;
+      ? (m.begin_at ?? m.scheduled_at ?? m.original_scheduled_at)
+      : (m.scheduled_at ?? m.original_scheduled_at ?? m.begin_at);
   const ms = when ? Date.parse(when) : NaN;
   if (!Number.isFinite(ms) || m.opponents.length !== 2) return null;
   const [a, b] = m.opponents.map((o) => o.opponent);
   const sa = m.results.find((r) => r.team_id === a.id)?.score;
   const sb = m.results.find((r) => r.team_id === b.id)?.score;
-  const voided = m.status === "canceled" || m.status === "postponed" || m.forfeit;
-  const finished = m.status === "finished" && sa !== undefined && sb !== undefined;
-  const status: SourceStatus = voided ? "void" : finished ? "final" : m.status === "running" ? "live" : "scheduled";
-  const format = m.number_of_games && m.number_of_games > 0 ? `Bo${m.number_of_games}` : undefined;
-  const baseLeague = m.serie?.full_name ? `${m.league.name} ${m.serie.full_name}` : m.league.name;
+  const voided =
+    m.status === "canceled" || m.status === "postponed" || m.forfeit;
+  const finished =
+    m.status === "finished" && sa !== undefined && sb !== undefined;
+  const status: SourceStatus = voided
+    ? "void"
+    : finished
+      ? "final"
+      : m.status === "running"
+        ? "live"
+        : "scheduled";
+  const format =
+    m.number_of_games && m.number_of_games > 0
+      ? `Bo${m.number_of_games}`
+      : undefined;
+  const baseLeague = m.serie?.full_name
+    ? `${m.league.name} ${m.serie.full_name}`
+    : m.league.name;
   const league = format ? `${baseLeague} (${format})` : baseLeague;
   return {
     source: "pandascore",
@@ -85,18 +101,51 @@ export async function upcoming(perGame = 50): Promise<SourceFixture[]> {
   if (!enabled()) return [];
   const out: SourceFixture[] = [];
   for (const g of GAMES) {
-    const list = await get<Match[]>(`/${g.slug}/matches/upcoming?per_page=${perGame}&sort=scheduled_at`);
-    out.push(...(list ?? []).map(toFixture).filter((f): f is SourceFixture => !!f));
+    const list = await get<Match[]>(
+      `/${g.slug}/matches/upcoming?per_page=${perGame}&sort=scheduled_at`,
+    );
+    out.push(
+      ...(list ?? []).map(toFixture).filter((f): f is SourceFixture => !!f),
+    );
   }
   return out;
 }
 
 export async function result(id: string): Promise<Vote> {
-  if (!enabled()) return { source: "pandascore", sourceId: id, status: "pending", note: "no key" };
+  if (!enabled())
+    return {
+      source: "pandascore",
+      sourceId: id,
+      status: "pending",
+      note: "no key",
+    };
   const m = await get<Match>(`/matches/${id}`);
   const f = m ? toFixture(m) : null;
-  if (!f) return { source: "pandascore", sourceId: id, status: "pending", note: "no data" };
-  if (f.status === "void") return { source: "pandascore", sourceId: id, status: "void", note: m!.status };
-  if (f.final) return { source: "pandascore", sourceId: id, status: "final", score: f.final };
-  return { source: "pandascore", sourceId: id, status: "pending", note: m!.status };
+  if (!f)
+    return {
+      source: "pandascore",
+      sourceId: id,
+      status: "pending",
+      note: "no data",
+    };
+  if (f.status === "void")
+    return {
+      source: "pandascore",
+      sourceId: id,
+      status: "void",
+      note: m!.status,
+    };
+  if (f.final)
+    return {
+      source: "pandascore",
+      sourceId: id,
+      status: "final",
+      score: f.final,
+    };
+  return {
+    source: "pandascore",
+    sourceId: id,
+    status: "pending",
+    note: m!.status,
+  };
 }

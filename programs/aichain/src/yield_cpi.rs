@@ -106,7 +106,17 @@ pub fn settle_vault(a: SettleAccounts) -> Result<u64> {
     }
 
     let total_pool = a.market.total_pool();
+    if a.vault.amount < total_pool {
+        let shortfall = total_pool - a.vault.amount;
+        require!(shortfall <= PRINCIPAL_DUST_TOLERANCE, AichainError::PrincipalShortfall);
+        market_signer!(a.market, id, bump, seeds);
+        yield_park::cpi::cover_principal_dust(CpiContext::new_with_signer(a.yield_program.clone(), yield_park::cpi::accounts::CoverPrincipalDust {
+            owner: a.market.to_account_info(), park: a.park.clone(), owner_ata: a.vault.to_account_info(), park_vault: a.park_vault.clone(), token_program: a.token_program.clone(),
+        }, &[seeds]), shortfall)?;
+        a.vault.reload()?;
+    }
     let balance = a.vault.amount;
+    require!(balance >= total_pool, AichainError::PrincipalShortfall);
     let surplus = balance.saturating_sub(total_pool);
     if surplus > 0 {
         market_signer!(a.market, id, bump, seeds);

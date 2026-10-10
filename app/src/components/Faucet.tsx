@@ -1,5 +1,6 @@
 "use client";
 
+import { useLanguage } from "./Language";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
@@ -12,6 +13,7 @@ import { AIchAIN_PROGRAM_ID } from "@/lib/ids";
 
 /** Anyone can tap the demo-USDC faucet once a day; the mint authority is a program PDA. */
 export function Faucet() {
+  const { t } = useLanguage();
   const program = useAichainProgram();
   const { connection } = useConnection();
   const wallet = useWallet();
@@ -25,7 +27,10 @@ export function Faucet() {
       if (!program || !wallet.publicKey) return 0;
       const [global] = globalPda(new PublicKey(AIchAIN_PROGRAM_ID));
       const g = await program.account.globalConfig.fetch(global);
-      const ata = getAssociatedTokenAddressSync(g.usdcMint as PublicKey, wallet.publicKey);
+      const ata = getAssociatedTokenAddressSync(
+        g.usdcMint as PublicKey,
+        wallet.publicKey,
+      );
       try {
         return Number((await getAccount(connection, ata)).amount) / 1e6;
       } catch {
@@ -50,8 +55,11 @@ export function Faucet() {
       const raw = e instanceof Error ? e.message : String(e);
       setMsg(
         /FaucetCooldown|6034/.test(raw)
-          ? "Już odebrane — kolejna porcja za 24h."
-          : raw.slice(0, 120)
+          ? t(
+              "Already received — try again in 24h.",
+              "Już odebrane — kolejna porcja za 24h.",
+            )
+          : raw.slice(0, 120),
       );
     } finally {
       setBusy(false);
@@ -68,7 +76,11 @@ export function Faucet() {
       >
         {busy ? "…" : `Faucet · ${(balance ?? 0).toFixed(0)} demo-USDC`}
       </button>
-      {msg && <span className="max-w-[220px] text-right text-[10px] text-mute">{msg}</span>}
+      {msg && (
+        <span className="max-w-[220px] text-right text-[10px] text-mute">
+          {msg}
+        </span>
+      )}
     </div>
   );
 }

@@ -1,22 +1,561 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 :root {
-  --bg0: #0b1220;
-  --bg1: #121a2b;
-  --accent: #3dffa8;
+  color-scheme: dark;
+  --bg: #101719;
+  --panel: #172124;
+  --accent: #baff71;
+  --mute: #9caeb1;
+  --stroke: #304043;
 }
-
+* {
+  box-sizing: border-box;
+}
 body {
-  background:
-    radial-gradient(1200px 600px at 10% -10%, rgba(61, 255, 168, 0.12), transparent 55%),
-    radial-gradient(900px 500px at 90% 0%, rgba(56, 120, 255, 0.14), transparent 50%),
-    var(--bg0);
+  margin: 0;
+  background: var(--bg);
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  color: #f3f7f7;
   min-height: 100vh;
 }
-
+a {
+  text-decoration: none;
+  color: inherit;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+input,
+select,
+textarea {
+  background: #111b1e;
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: inherit;
+  min-width: 0;
+}
+h1,
+h2,
+h3,
+.brand {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+}
+h1 {
+  font-size: clamp(40px, 6vw, 72px);
+  line-height: 1.02;
+  letter-spacing: -3px;
+  white-space: pre-line;
+  margin: 16px 0 24px;
+}
+h2 {
+  font-size: 28px;
+  letter-spacing: -1px;
+  margin: 5px 0;
+}
+h3 {
+  font-size: 23px;
+  margin: 24px 0;
+}
+.muted,
+small {
+  color: var(--mute);
+}
+small {
+  font-size: 12px;
+}
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--accent);
+  margin: 0 0 12px;
+}
+.site-header {
+  border-bottom: 1px solid var(--stroke);
+  background: var(--bg);
+}
+.nav-inner {
+  max-width: 1200px;
+  margin: auto;
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  justify-content: space-between;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 22px;
+  font-weight: 700;
+}
+.brand-mark {
+  background: var(--accent);
+  color: var(--bg);
+  width: 30px;
+  height: 30px;
+  text-align: center;
+  border-radius: 7px;
+}
+.network {
+  font: 9px system-ui;
+  border: 1px solid var(--stroke);
+  border-radius: 5px;
+  padding: 4px;
+  color: var(--mute);
+}
+nav {
+  display: flex;
+  gap: 22px;
+  font-size: 13px;
+  color: var(--mute);
+}
+nav a.active,
+nav a:hover {
+  color: var(--accent);
+}
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.language-toggle {
+  color: var(--mute);
+  background: none;
+  border: 0;
+  font-size: 12px;
+}
 .wallet-adapter-button {
-  background: #1a2438 !important;
-  font-family: "Space Grotesk", system-ui, sans-serif !important;
+  background: var(--accent) !important;
+  color: var(--bg) !important;
+  height: 38px !important;
+  font:
+    600 12px "IBM Plex Sans",
+    system-ui !important;
+  border-radius: 7px !important;
+  padding: 0 14px !important;
+}
+main {
+  max-width: 1200px !important;
+  padding: 0 24px 40px !important;
+}
+.hero {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 80px;
+  padding: 76px 0 68px;
+  border-bottom: 1px solid var(--stroke);
+  margin-bottom: 45px;
+}
+.hero-copy {
+  max-width: 470px;
+  line-height: 1.7;
+  color: var(--mute);
+  font-size: 16px;
+  margin-bottom: 26px;
+}
+.button,
+button.primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  border: 0;
+  border-radius: 8px;
+  padding: 13px 20px;
+  font-weight: 600;
+}
+.primary {
+  background: var(--accent);
+  color: var(--bg);
+}
+.secondary {
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--panel);
+  color: inherit;
+}
+.hero-aside {
+  padding: 34px;
+  background: var(--panel);
+  border-radius: 16px;
+  align-self: center;
+}
+.hero-aside > strong {
+  font: 600 64px "Space Grotesk";
+  letter-spacing: -4px;
+  color: var(--accent);
+}
+.hero-aside > strong span {
+  font-size: 30px;
+}
+.hero-aside p:not(.eyebrow) {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--mute);
+}
+.divider {
+  height: 1px;
+  background: var(--stroke);
+  margin: 24px 0;
+}
+.section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  margin: 30px 0 25px;
+}
+.section-heading .eyebrow {
+  color: var(--mute);
+}
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tabs button {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 9px 14px;
+  font-size: 13px;
+  color: var(--mute);
+}
+.tabs button.selected {
+  color: var(--accent);
+  background: var(--panel);
+  border-color: var(--stroke);
+}
+.toolbar input {
+  font-size: 13px;
+}
+.market-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.market-card {
+  background: var(--panel);
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  padding: 22px;
+  transition: border-color 0.15s;
+}
+.market-card:hover {
+  border-color: var(--accent);
+}
+.card-top,
+.card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.status {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent);
+  border: 1px solid var(--stroke);
+  padding: 5px 8px;
+  border-radius: 5px;
+}
+.status.cancelled {
+  color: #ffce84;
+}
+.kickoff {
+  font-size: 12px;
+  color: var(--mute);
+  margin-top: 16px;
+}
+.versus {
+  display: block;
+  font: 11px "IBM Plex Sans";
+  color: var(--mute);
+  padding: 8px 0;
+}
+.pool-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.pool-pair > div {
+  padding: 14px 10px;
+  background: var(--bg);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.pool-pair strong {
+  font-size: 16px;
+}
+.pool-pair > div > span {
+  color: var(--accent);
+  font-size: 13px;
+}
+.card-bottom {
+  border-top: 1px solid var(--stroke);
+  margin-top: 20px;
+  padding-top: 16px;
+  font-size: 11px;
+  color: var(--mute);
+}
+.notice {
+  border: 1px solid var(--stroke);
+  border-radius: 10px;
+  padding: 20px;
+  background: var(--panel);
+  color: var(--mute);
+  margin: 20px 0;
+}
+.notice.error {
+  color: #ffb8a5;
+}
+.notice button {
+  background: none;
+  color: var(--accent);
+  border: 0;
+}
+.catalog-section {
+  margin-top: 65px;
+}
+.fixture-list {
+  border-top: 1px solid var(--stroke);
+}
+.fixture-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--stroke);
+  padding: 16px 0;
+  gap: 15px;
+}
+.fixture-row strong,
+.fixture-row small {
+  display: block;
+}
+.fixture-row strong {
+  font-size: 14px;
+  margin-top: 5px;
+}
+.fixture-row > span {
+  font-size: 12px;
+  text-align: right;
+}
+.detail-header {
+  padding: 44px 0 28px;
+}
+.detail-header h1 {
+  font-size: clamp(30px, 5vw, 48px);
+  letter-spacing: -1.6px;
+  white-space: normal;
+}
+.detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 28px;
+}
+.detail-layout > * {
+  min-width: 0;
+}
+.bet-form select {
+  width: 100%;
+  max-width: 100%;
+}
+.panel {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  background: var(--panel);
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  padding: 26px;
+}
+.panel h2 {
+  font-size: 22px;
+}
+.bet-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.bet-form label {
+  font-size: 13px;
+  color: var(--mute);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.choice {
+  background: var(--bg);
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  padding: 14px;
+  text-align: left;
+  color: inherit;
+}
+.choice.selected {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--stroke);
+  font-size: 13px;
+}
+.stat-row span {
+  color: var(--mute);
+}
+.tx-link {
+  display: block;
+  margin-top: 20px;
+  color: var(--accent);
+  font-size: 12px;
+  word-break: break-all;
+}
+.participant-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.participant-table th {
+  text-align: left;
+  color: var(--mute);
+  font-weight: 400;
+}
+.participant-table td,
+.participant-table th {
+  padding: 16px 10px;
+  border-bottom: 1px solid var(--stroke);
+}
+.participant-table tr.selected {
+  color: var(--accent);
+}
+.participant-table button {
+  background: none;
+  border: 0;
+  color: inherit;
+  text-align: left;
+}
+footer {
+  color: var(--mute);
+  font-size: 12px;
+  line-height: 1.8;
+  padding-top: 50px;
+  margin-top: 45px;
+  border-top: 1px solid var(--stroke);
+}
+@media (max-width: 1000px) {
+  .nav-inner {
+    flex-wrap: wrap;
+    gap: 18px;
+  }
+  nav {
+    order: 3;
+    width: 100%;
+  }
+  .hero {
+    gap: 35px;
+  }
+  .market-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  main {
+    padding: 0 16px 30px !important;
+  }
+  .nav-inner {
+    padding: 16px;
+    gap: 12px;
+  }
+  .brand {
+    font-size: 19px;
+  }
+  .network {
+    display: none;
+  }
+  .nav-actions {
+    gap: 7px;
+  }
+  .nav-actions .wallet-adapter-button {
+    font-size: 10px !important;
+    padding: 0 9px !important;
+  }
+  .hero {
+    grid-template-columns: 1fr;
+    padding: 44px 0;
+    gap: 30px;
+  }
+  .hero-aside {
+    padding: 25px;
+  }
+  h1 {
+    letter-spacing: -2px;
+  }
+  .market-grid,
+  .detail-layout {
+    grid-template-columns: 1fr;
+  }
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .tabs button {
+    padding: 9px 11px;
+  }
+  .market-card {
+    padding: 20px;
+  }
+  .detail-header {
+    padding-top: 30px;
+  }
+  .panel {
+    padding: 20px;
+  }
+  .participant-table td,
+  .participant-table th {
+    padding: 12px 5px;
+  }
+  nav {
+    gap: 24px;
+  }
+  .fixture-row {
+    align-items: start;
+  }
+  .hero-aside > strong {
+    font-size: 50px;
+  }
 }

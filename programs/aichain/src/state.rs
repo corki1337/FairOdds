@@ -231,3 +231,25 @@ mod tests {
         assert!(market(MarketStatus::Cancelled, None, 0, 0, 0).obligations_settled());
     }
 }
+
+/// Immutable opt-in rules for newly created match markets. Legacy markets have no policy.
+pub const SEED_POLICY: &[u8] = b"policy";
+pub const CANCEL_ONE_SIDED: u8 = 5;
+#[account]
+#[derive(InitSpace)]
+pub struct MarketPolicy {
+    pub market: Pubkey,
+    pub fee_bps: u16,
+    pub cancel_one_sided: bool,
+    pub bump: u8,
+}
+impl MarketPolicy { pub const LEN: usize = 8 + Self::INIT_SPACE; }
+
+pub fn load_policy(info: &AccountInfo, market: &Pubkey) -> Result<Option<MarketPolicy>> {
+    if info.data_is_empty() { return Ok(None); }
+    require_keys_eq!(*info.owner, crate::ID, crate::errors::AichainError::Unauthorized);
+    let data = info.try_borrow_data()?;
+    let policy = MarketPolicy::try_deserialize(&mut &data[..])?;
+    require_keys_eq!(policy.market, *market, crate::errors::AichainError::Unauthorized);
+    Ok(Some(policy))
+}

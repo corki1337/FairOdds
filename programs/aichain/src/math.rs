@@ -64,3 +64,20 @@ mod tests {
         assert_eq!(pari_mutuel_payout(max, max, max).unwrap(), max);
     }
 }
+
+/// Fee applies to positive net profit only, never principal or refunds.
+pub fn profit_fee(gross: u64, stake: u64, bps: u16) -> Result<u64> {
+    require!(bps <= 10_000, AichainError::MathOverflow);
+    Ok(((gross.saturating_sub(stake) as u128) * bps as u128 / 10_000) as u64)
+}
+#[cfg(test)]
+mod fee_tests {
+    use super::*;
+    #[test] fn only_positive_profit_is_taxed() {
+        assert_eq!(profit_fee(400_000_000, 100_000_000, 50).unwrap(), 1_500_000);
+        assert_eq!(profit_fee(100, 100, 50).unwrap(), 0);
+        assert_eq!(profit_fee(99, 100, 50).unwrap(), 0);
+        assert_eq!(profit_fee(u64::MAX, 0, 10_000).unwrap(), u64::MAX);
+        assert!(profit_fee(100, 0, 10_001).is_err());
+    }
+}

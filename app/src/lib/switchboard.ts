@@ -20,10 +20,15 @@ import {
 } from "@solana/web3.js";
 import { eventUrl, UNMARKETABLE_ID_OFFSET } from "./fixtures";
 
-export const SB_PROGRAM_ID = new PublicKey("Aio4gaXjXzJNVLtzwtNVmSqGKpANtXhybbkhtAC94ji2");
-export const SB_QUEUE = new PublicKey("EYiAmGSdsQTuCw413V5BzaruWuCCSDgTPtBGvLkXHbe7");
+export const SB_PROGRAM_ID = new PublicKey(
+  "Aio4gaXjXzJNVLtzwtNVmSqGKpANtXhybbkhtAC94ji2",
+);
+export const SB_QUEUE = new PublicKey(
+  "EYiAmGSdsQTuCw413V5BzaruWuCCSDgTPtBGvLkXHbe7",
+);
 export const CROSSBAR_URL =
-  process.env.NEXT_PUBLIC_CROSSBAR_URL || "https://crossbar.switchboardlabs.xyz";
+  process.env.NEXT_PUBLIC_CROSSBAR_URL ||
+  "https://crossbar.switchboardlabs.xyz";
 export const OPENLIGADB_BASE = "https://api.openligadb.de";
 export const PANDASCORE_BASE = "https://api.pandascore.co";
 
@@ -34,24 +39,27 @@ export const SOURCE_OPENLIGADB = 1;
  * `teamA_score - teamB_score` (maps won) for one PandaScore esports series.
  * The path checks `winner_id != null` so an unfinished match yields no value at all.
  */
-export function pandaScoreDiffJobs(
+function legacyPandaScoreDiffJobs(
   pandaMatchId: number | bigint | string,
-  token = process.env.NEXT_PUBLIC_PANDASCORE_TOKEN ||
-    process.env.PANDASCORE_TOKEN ||
-    "xkUsALXPNoiEDE_vaByyLM4X6HzCZNszQj-nvr4x90yq8O4bpRE"
 ): OracleJob[] {
-  const url = `${PANDASCORE_BASE}/matches/${pandaMatchId}?token=${token}`;
+  const url = `${PANDASCORE_BASE}/matches/${pandaMatchId}?token=${"${PANDASCORE_TOKEN}"}`;
   return [
     OracleJob.fromObject({
       tasks: [
         { httpTask: { url } },
-        { jsonParseTask: { path: "$[?(@.winner_id != null)].results[0].score" } },
+        {
+          jsonParseTask: { path: "$[?(@.winner_id != null)].results[0].score" },
+        },
         {
           subtractTask: {
             job: {
               tasks: [
                 { httpTask: { url } },
-                { jsonParseTask: { path: "$[?(@.winner_id != null)].results[1].score" } },
+                {
+                  jsonParseTask: {
+                    path: "$[?(@.winner_id != null)].results[1].score",
+                  },
+                },
               ],
             },
           },
@@ -66,11 +74,11 @@ export function pandaScoreDiffJobs(
  * `null` until the match is over, so an unfinished match yields no value at all and the
  * oracles simply cannot report anything early.
  */
-export function scoreDiffJobs(matchId: number | bigint | string): OracleJob[] {
+function legacyScoreDiffJobs(matchId: number | bigint | string): OracleJob[] {
   const idNum = BigInt(matchId.toString());
   if (idNum >= BigInt(UNMARKETABLE_ID_OFFSET)) {
     const pandaId = (idNum - BigInt(UNMARKETABLE_ID_OFFSET)).toString();
-    return pandaScoreDiffJobs(pandaId);
+    return legacyPandaScoreDiffJobs(pandaId);
   }
   const url = eventUrl(String(matchId));
   return [
@@ -93,12 +101,70 @@ export function scoreDiffJobs(matchId: number | bigint | string): OracleJob[] {
   ];
 }
 
+/** Final series score follows the catalog opponent IDs, never the results array order. */
+export function pandaScoreDiffJobs(id: number | bigint | string): OracleJob[] {
+  const url = `${PANDASCORE_BASE}/matches/${id}?token=${"${PANDASCORE_TOKEN}"}`;
+  const read = (path: string) => ({
+    tasks: [{ httpTask: { url } }, { jsonParseTask: { path } }],
+  });
+  const final = "$[?(@.status == 'finished' && @.forfeit == false)]";
+  return [
+    OracleJob.fromObject({
+      tasks: [
+        {
+          cacheTask: {
+            cacheItems: [
+              {
+                variableName: "TEAM_A",
+                job: read(`${final}.opponents[0].opponent.id`),
+              },
+              {
+                variableName: "TEAM_B",
+                job: read(`${final}.opponents[1].opponent.id`),
+              },
+            ],
+          },
+        },
+        ...read(`${final}.results[?(@.team_id == ${"${TEAM_A}"})].score`).tasks,
+        {
+          subtractTask: {
+            job: read(`${final}.results[?(@.team_id == ${"${TEAM_B}"})].score`),
+          },
+        },
+      ],
+    }),
+  ];
+}
+/** New feeds require an explicit final status instead of accepting live scores. */
+export function scoreDiffJobs(id: number | bigint | string): OracleJob[] {
+  const n = BigInt(id);
+  if (n >= BigInt(UNMARKETABLE_ID_OFFSET))
+    return pandaScoreDiffJobs(n - BigInt(UNMARKETABLE_ID_OFFSET));
+  const jobs = legacyScoreDiffJobs(id);
+  const value = OracleJob.toObject(jobs[0]);
+  value.tasks![1].jsonParseTask!.path =
+    "$.events[?(@.strStatus == 'FT')].intHomeScore";
+  value.tasks![2].subtractTask!.job!.tasks![1].jsonParseTask!.path =
+    "$.events[?(@.strStatus == 'FT')].intAwayScore";
+  return [OracleJob.fromObject(value)];
+}
+/** Existing football jobs remain pinned to their original content hash. */
+export function jobsForMatch(id: string, hash: Uint8Array): OracleJob[] {
+  for (const jobs of [scoreDiffJobs(id), legacyScoreDiffJobs(id)])
+    if (feedHashOf(jobs).equals(Buffer.from(hash))) return jobs;
+  throw new Error(
+    "Unsupported pinned match feed; preserve its original jobs or wait for the refund deadline",
+  );
+}
+
 /**
  * Same `home - away` from OpenLigaDB's "Endergebnis" (regular time). The path only matches
  * once `matchIsFinished` is true; OpenLigaDB is community-updated during the match, so
  * without that gate an oracle could sign an in-play value.
  */
-export function openLigaDiffJobs(openLigaMatchId: number | bigint | string): OracleJob[] {
+export function openLigaDiffJobs(
+  openLigaMatchId: number | bigint | string,
+): OracleJob[] {
   const url = `${OPENLIGADB_BASE}/getmatchdata/${openLigaMatchId}`;
   const points = (team: 1 | 2) =>
     `$[?(@.matchIsFinished == true)].matchResults[?(@.resultTypeID == 2)].pointsTeam${team}`;
@@ -109,7 +175,12 @@ export function openLigaDiffJobs(openLigaMatchId: number | bigint | string): Ora
         { jsonParseTask: { path: points(1) } },
         {
           subtractTask: {
-            job: { tasks: [{ httpTask: { url } }, { jsonParseTask: { path: points(2) } }] },
+            job: {
+              tasks: [
+                { httpTask: { url } },
+                { jsonParseTask: { path: points(2) } },
+              ],
+            },
           },
         },
       ],
@@ -130,17 +201,24 @@ export function feedHashFor(matchId: number | bigint | string): Buffer {
  * published there. Idempotent: the hash is content-addressed.
  */
 export async function storeJobs(jobs: OracleJob[]): Promise<void> {
-  const stored = await new LegacyCrossbarClient(CROSSBAR_URL).store(SB_QUEUE.toBase58(), jobs);
+  const stored = await new LegacyCrossbarClient(CROSSBAR_URL).store(
+    SB_QUEUE.toBase58(),
+    jobs,
+  );
   const expected = feedHashOf(jobs).toString("hex");
   if (stored.feedHash.replace(/^0x/, "") !== expected) {
-    throw new Error(`Crossbar stored feed hash ${stored.feedHash}, expected ${expected}`);
+    throw new Error(
+      `Crossbar stored feed hash ${stored.feedHash}, expected ${expected}`,
+    );
   }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type SbProgram = any;
 
-export async function loadSwitchboard(connection: Connection): Promise<SbProgram> {
+export async function loadSwitchboard(
+  connection: Connection,
+): Promise<SbProgram> {
   return sb.AnchorUtils.loadProgramFromConnection(connection as never);
 }
 
@@ -150,8 +228,18 @@ export async function loadSwitchboard(connection: Connection): Promise<SbProgram
  */
 export async function buildCreateFeedIxs(
   sbProgram: SbProgram,
-  params: { jobs: OracleJob[]; name: string; payer: PublicKey; feedLock: PublicKey }
-): Promise<{ feedKeypair: Keypair; feed: PublicKey; feedHash: Buffer; ixs: TransactionInstruction[] }> {
+  params: {
+    jobs: OracleJob[];
+    name: string;
+    payer: PublicKey;
+    feedLock: PublicKey;
+  },
+): Promise<{
+  feedKeypair: Keypair;
+  feed: PublicKey;
+  feedHash: Buffer;
+  ixs: TransactionInstruction[];
+}> {
   const [pullFeed, feedKeypair] = sb.PullFeed.generate(sbProgram);
   await storeJobs(params.jobs);
   const feedHash = feedHashOf(params.jobs);
@@ -166,27 +254,33 @@ export async function buildCreateFeedIxs(
     feedHash,
     payer: params.payer,
   });
-  const lockIx: TransactionInstruction = sbProgram.instruction.pullFeedSetConfigs(
-    {
-      name: null,
-      feedHash: null,
-      authority: params.feedLock,
-      maxVariance: null,
-      minResponses: null,
-      minSampleSize: null,
-      maxStaleness: null,
-      permitWriteByAuthority: null,
-      ipfsHash: null,
-    },
-    { accounts: { pullFeed: pullFeed.pubkey, authority: params.payer } }
-  );
-  return { feedKeypair, feed: pullFeed.pubkey, feedHash, ixs: [initIx, lockIx] };
+  const lockIx: TransactionInstruction =
+    sbProgram.instruction.pullFeedSetConfigs(
+      {
+        name: null,
+        feedHash: null,
+        authority: params.feedLock,
+        maxVariance: null,
+        minResponses: null,
+        minSampleSize: null,
+        maxStaleness: null,
+        permitWriteByAuthority: null,
+        ipfsHash: null,
+      },
+      { accounts: { pullFeed: pullFeed.pubkey, authority: params.payer } },
+    );
+  return {
+    feedKeypair,
+    feed: pullFeed.pubkey,
+    feedHash,
+    ixs: [initIx, lockIx],
+  };
 }
 
 /** Asks the oracle gateway to run the feed's jobs and returns signed update instructions. */
 export async function buildFeedUpdateIxs(
   sbProgram: SbProgram,
-  params: { feed: PublicKey; jobs: OracleJob[]; payer: PublicKey }
+  params: { feed: PublicKey; jobs: OracleJob[]; payer: PublicKey },
 ): Promise<{
   ixs: TransactionInstruction[];
   luts: AddressLookupTableAccount[];
@@ -197,6 +291,14 @@ export async function buildFeedUpdateIxs(
   const [ixs, responses, , luts, failures] = await pullFeed.fetchUpdateIx({
     crossbarClient: new CrossbarClient(CROSSBAR_URL),
     jobs: params.jobs,
+    variableOverrides:
+      typeof window === "undefined"
+        ? Object.fromEntries(
+            ["PANDASCORE_TOKEN", "FOOTBALL_DATA_KEY"]
+              .filter((k) => !!process.env[k])
+              .map((k) => [k, process.env[k]!]),
+          )
+        : undefined,
     numSignatures: 1,
     payer: params.payer,
   });
@@ -210,8 +312,13 @@ export async function buildFeedUpdateIxs(
 /** Decodes what aichain's resolve will see: submissions that landed at or after `notBefore`. */
 export function decodeFeedSubmissions(
   data: Buffer,
-  notBefore: number
-): { values: bigint[]; feedHash: string; authority: PublicKey; queue: PublicKey } {
+  notBefore: number,
+): {
+  values: bigint[];
+  feedHash: string;
+  authority: PublicKey;
+  queue: PublicKey;
+} {
   const values: bigint[] = [];
   for (let i = 0; i < 32; i++) {
     const off = 8 + i * 64;
@@ -235,8 +342,14 @@ export function decodeFeedSubmissions(
  * market, feed, feed_hash, source u8, source_ref u64, bump u8.
  */
 export function decodeSecondaryOracle(
-  data: Buffer
-): { market: PublicKey; feed: PublicKey; feedHash: Buffer; source: number; sourceRef: bigint } | null {
+  data: Buffer,
+): {
+  market: PublicKey;
+  feed: PublicKey;
+  feedHash: Buffer;
+  source: number;
+  sourceRef: bigint;
+} | null {
   if (data.length < 8 + 32 + 32 + 32 + 1 + 8 + 1) return null;
   return {
     market: new PublicKey(data.subarray(8, 40)),
@@ -247,7 +360,10 @@ export function decodeSecondaryOracle(
   };
 }
 
-export function secondaryJobs(source: number, sourceRef: bigint | number | string): OracleJob[] {
+export function secondaryJobs(
+  source: number,
+  sourceRef: bigint | number | string,
+): OracleJob[] {
   if (source === SOURCE_OPENLIGADB) return openLigaDiffJobs(sourceRef);
   throw new Error(`unknown secondary source ${source}`);
 }

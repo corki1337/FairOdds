@@ -17,7 +17,13 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
+import {
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+} from "@solana/web3.js";
 import * as fs from "fs";
 import * as path from "path";
 import type { Fixture } from "../app/src/lib/fixtures";
@@ -36,11 +42,17 @@ import {
   type Ctx,
 } from "./common";
 
-async function expectFail(label: string, fn: () => Promise<unknown>, needle: string) {
+async function expectFail(
+  label: string,
+  fn: () => Promise<unknown>,
+  needle: string,
+) {
   try {
     await fn();
   } catch (e) {
-    const msg = String((e as Error).message ?? e) + JSON.stringify((e as { logs?: string[] }).logs ?? []);
+    const msg =
+      String((e as Error).message ?? e) +
+      JSON.stringify((e as { logs?: string[] }).logs ?? []);
     if (msg.includes(needle)) {
       console.log(`   ok: ${label} rejected (${needle})`);
       return;
@@ -56,12 +68,19 @@ async function fund(ctx: Ctx, to: PublicKey, sol: number) {
       fromPubkey: ctx.admin.publicKey,
       toPubkey: to,
       lamports: Math.floor(sol * LAMPORTS_PER_SOL),
-    })
+    }),
   );
   await ctx.provider.sendAndConfirm(tx, [ctx.admin]);
 }
 
-async function bet(ctx: Ctx, user: Keypair, ata: PublicKey, market: PublicKey, amount: number, team: number) {
+async function bet(
+  ctx: Ctx,
+  user: Keypair,
+  ata: PublicKey,
+  market: PublicKey,
+  amount: number,
+  team: number,
+) {
   const pid = ctx.aichain.programId;
   return ctx.aichain.methods
     .placeBet(new anchor.BN(amount), team)
@@ -83,7 +102,10 @@ async function main() {
   const pid = ctx.aichain.programId;
   const mint = new PublicKey(ctx.config.usdcMint);
   const catalog = JSON.parse(
-    fs.readFileSync(path.join(ROOT, "app", "src", "data", "fixtures.json"), "utf8")
+    fs.readFileSync(
+      path.join(ROOT, "app", "src", "data", "fixtures.json"),
+      "utf8",
+    ),
   ) as { fixtures: Fixture[] };
 
   const wanted = Number(process.env.SMOKE_MATCH_ID);
@@ -99,8 +121,13 @@ async function main() {
       }
     }
   }
-  if (!fixture) throw new Error("no finished, decided fixture without a market");
-  if (fixture.scoreA === null || fixture.scoreB === null || fixture.scoreA === fixture.scoreB) {
+  if (!fixture)
+    throw new Error("no finished, decided fixture without a market");
+  if (
+    fixture.scoreA === null ||
+    fixture.scoreB === null ||
+    fixture.scoreA === fixture.scoreB
+  ) {
     throw new Error(`fixture ${fixture.id} is not a decided match`);
   }
   const winner = fixture.scoreA > fixture.scoreB ? 0 : 1;
@@ -108,7 +135,8 @@ async function main() {
 
   console.log("0) Faucet: admin taps the permissionless demo-USDC tap");
   const adminAta = getAssociatedTokenAddressSync(mint, ctx.admin.publicKey);
-  const beforeFaucet = (await getAccount(ctx.provider.connection, adminAta)).amount;
+  const beforeFaucet = (await getAccount(ctx.provider.connection, adminAta))
+    .amount;
   try {
     await ctx.aichain.methods
       .faucetMint()
@@ -124,7 +152,8 @@ async function main() {
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       })
       .rpc();
-    const afterFaucet = (await getAccount(ctx.provider.connection, adminAta)).amount;
+    const afterFaucet = (await getAccount(ctx.provider.connection, adminAta))
+      .amount;
     console.log("   +", Number(afterFaucet - beforeFaucet) / 1e6, "USDC");
     await expectFail(
       "second faucet within 24h",
@@ -143,7 +172,7 @@ async function main() {
             associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
           })
           .rpc(),
-      "FaucetCooldown"
+      "FaucetCooldown",
     );
   } catch (e) {
     if (!String(e).includes("FaucetCooldown")) throw e;
@@ -162,7 +191,7 @@ async function main() {
   const market = pdas.market(pid, matchId);
   console.log(
     `2) Create market #${matchId} ${fixture.teamA} vs ${fixture.teamB}` +
-      ` (final score ${fixture.scoreA}:${fixture.scoreB} -> side ${winner})`
+      ` (final score ${fixture.scoreA}:${fixture.scoreB} -> side ${winner})`,
   );
   const now = Math.floor(Date.now() / 1000);
   let start = now + 40;
@@ -171,9 +200,15 @@ async function main() {
   let feed: PublicKey;
   if (existing) {
     feed = existing.oracleFeed as PublicKey;
-    console.log("   reusing market", market.toBase58(), "feed", feed.toBase58());
+    console.log(
+      "   reusing market",
+      market.toBase58(),
+      "feed",
+      feed.toBase58(),
+    );
   } else {
     const created = await createMarketWithFeed(ctx, {
+      legacy: true,
       matchId,
       teamA: fixture.teamA,
       teamB: fixture.teamB,
@@ -187,13 +222,25 @@ async function main() {
   start = Number(m0.startTime);
   end = Number(m0.endTime);
   const feedInfo = await ctx.provider.connection.getAccountInfo(feed);
-  const feedAuthority = new PublicKey(feedInfo!.data.subarray(8 + 2048, 8 + 2080));
-  console.log("   feed", feed.toBase58(), "authority", feedAuthority.toBase58());
-  if (!feedAuthority.equals(pdas.feedLock(pid))) throw new Error("feed authority not locked");
+  const feedAuthority = new PublicKey(
+    feedInfo!.data.subarray(8 + 2048, 8 + 2080),
+  );
+  console.log(
+    "   feed",
+    feed.toBase58(),
+    "authority",
+    feedAuthority.toBase58(),
+  );
+  if (!feedAuthority.equals(pdas.feedLock(pid)))
+    throw new Error("feed authority not locked");
   console.log("   feed hash pinned", Buffer.from(m0.feedHash).toString("hex"));
 
   console.log("3) Bets: winner side 100 USDC, loser side 300 USDC");
-  await expectFail("bet below minimum", () => bet(ctx, a, ataA, market, 999_999, winner), "BetTooSmall");
+  await expectFail(
+    "bet below minimum",
+    () => bet(ctx, a, ataA, market, 999_999, winner),
+    "BetTooSmall",
+  );
   const betOnce = async (label: string, fn: () => Promise<unknown>) => {
     for (let i = 0; i < 5; i++) {
       try {
@@ -227,7 +274,7 @@ async function main() {
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .rpc(),
-    "MarketNotResolved"
+    "MarketNotResolved",
   );
 
   await sleep(Math.max(0, (start - Math.floor(Date.now() / 1000) + 2) * 1000));
@@ -236,11 +283,13 @@ async function main() {
   await expectFail(
     "resolve before end",
     async () => sendV0(ctx, [await resolveIx(ctx, market, feed)], [ctx.admin]),
-    "ResolveTooEarly"
+    "ResolveTooEarly",
   );
 
   await sleep(Math.max(0, (end - Math.floor(Date.now() / 1000) + 3) * 1000));
-  console.log("6) Resolve from TheSportsDB via Switchboard (signed update -> on-chain verify)");
+  console.log(
+    "6) Resolve from TheSportsDB via Switchboard (signed update -> on-chain verify)",
+  );
   let outcome = "";
   for (let i = 0; i < 6; i++) {
     outcome = await crankMarket(ctx, market);
@@ -250,7 +299,9 @@ async function main() {
   }
   const m1 = await fetchMarket(ctx, market);
   if (statusOf(m1) !== "resolved" || Number(m1.winningTeam) !== winner) {
-    throw new Error(`expected resolved/${winner}, got ${statusOf(m1)}/${m1.winningTeam}`);
+    throw new Error(
+      `expected resolved/${winner}, got ${statusOf(m1)}/${m1.winningTeam}`,
+    );
   }
 
   console.log("7) Winner claims, loser rejected, harvest gated");
@@ -258,6 +309,9 @@ async function main() {
     ctx.aichain.methods
       .claimWinnings()
       .accounts({
+        policy: pdas.policy(pid, market),
+        global: new PublicKey(ctx.config.globalPda),
+        treasury: new PublicKey(ctx.config.treasuryPda),
         user: user.publicKey,
         market,
         vault: pdas.vault(pid, market),
@@ -278,6 +332,7 @@ async function main() {
 
   const summary = {
     ok: true,
+    legacy: true,
     matchId: matchId.toString(),
     fixture: `${fixture.teamA} ${fixture.scoreA}:${fixture.scoreB} ${fixture.teamB}`,
     market: market.toBase58(),
@@ -287,7 +342,10 @@ async function main() {
     explorerMarket: `https://explorer.solana.com/address/${market.toBase58()}?cluster=devnet`,
     explorerFeed: `https://explorer.solana.com/address/${feed.toBase58()}?cluster=devnet`,
   };
-  fs.writeFileSync(path.join(ROOT, "smoke-result.json"), JSON.stringify(summary, null, 2));
+  fs.writeFileSync(
+    path.join(ROOT, "smoke-result.json"),
+    JSON.stringify(summary, null, 2),
+  );
   console.log("SMOKE OK", summary);
 }
 

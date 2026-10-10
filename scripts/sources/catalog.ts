@@ -22,7 +22,15 @@ import * as pandascore from "./pandascore";
 import * as thesportsdb from "./thesportsdb";
 import type { SourceFixture } from "./types";
 
-export const CATALOG_PATH = path.join(__dirname, "..", "..", "app", "src", "data", "fixtures.json");
+export const CATALOG_PATH = path.join(
+  __dirname,
+  "..",
+  "..",
+  "app",
+  "src",
+  "data",
+  "fixtures.json",
+);
 
 const ROUND_LEAGUES: { id: string; category: FixtureCategoryId }[] = [
   { id: "4328", category: "football" }, // English Premier League
@@ -61,7 +69,8 @@ function toRow(f: SourceFixture, id: number, marketable: boolean): Fixture {
   return {
     key: `${f.source}:${f.sourceId}`,
     id,
-    marketable,
+    marketable: marketable && !f.timeTBD,
+    timeTBD: f.timeTBD,
     sources: { [f.source]: f.sourceId, ...f.refs },
     category: f.category,
     league: f.league,
@@ -76,7 +85,11 @@ function toRow(f: SourceFixture, id: number, marketable: boolean): Fixture {
   };
 }
 
-function attach(rows: Map<string, Fixture>, base: SourceFixture[], other: SourceFixture[]): number {
+function attach(
+  rows: Map<string, Fixture>,
+  base: SourceFixture[],
+  other: SourceFixture[],
+): number {
   const links = linkFixtures(base, other);
   for (const [baseId, otherId] of links) {
     const row = rows.get(baseId);
@@ -93,7 +106,13 @@ export async function buildCatalog(log: (msg: string) => void = console.log) {
     byLeague.set(leagueId, [...(byLeague.get(leagueId) ?? []), ...list]);
 
   for (const { id, category } of ROUND_LEAGUES) {
-    const list = await thesportsdb.leagueRounds(id, category, season, 1, ROUNDS);
+    const list = await thesportsdb.leagueRounds(
+      id,
+      category,
+      season,
+      1,
+      ROUNDS,
+    );
     add(id, list);
     log(`thesportsdb ${id}: ${list.length}`);
   }
@@ -106,14 +125,21 @@ export async function buildCatalog(log: (msg: string) => void = console.log) {
   const rows = new Map<string, Fixture>();
   for (const list of byLeague.values()) {
     for (const f of list) {
-      if (!rows.has(f.sourceId)) rows.set(f.sourceId, toRow(f, Number(f.sourceId), true));
+      if (!rows.has(f.sourceId))
+        rows.set(f.sourceId, toRow(f, Number(f.sourceId), true));
     }
   }
-  if (rows.size === 0) throw new Error("TheSportsDB returned nothing; refusing to wipe catalog");
+  if (rows.size === 0)
+    throw new Error("TheSportsDB returned nothing; refusing to wipe catalog");
 
   for (const [leagueId, shortcut] of Object.entries(OPENLIGADB_LEAGUES)) {
-    const other = await openligadb.season(shortcut, openligadb.seasonYear(season));
-    log(`openligadb ${shortcut}: ${other.length}, linked ${attach(rows, byLeague.get(leagueId) ?? [], other)}`);
+    const other = await openligadb.season(
+      shortcut,
+      openligadb.seasonYear(season),
+    );
+    log(
+      `openligadb ${shortcut}: ${other.length}, linked ${attach(rows, byLeague.get(leagueId) ?? [], other)}`,
+    );
   }
 
   if (footballData.enabled()) {
@@ -121,7 +147,9 @@ export async function buildCatalog(log: (msg: string) => void = console.log) {
       const base = byLeague.get(leagueId);
       if (!base?.length) continue;
       const other = await footballData.competition(leagueId);
-      log(`football-data ${leagueId}: ${other.length}, linked ${attach(rows, base, other)}`);
+      log(
+        `football-data ${leagueId}: ${other.length}, linked ${attach(rows, base, other)}`,
+      );
     }
   } else {
     log("football-data: skipped (no FOOTBALL_DATA_KEY)");
@@ -129,7 +157,7 @@ export async function buildCatalog(log: (msg: string) => void = console.log) {
   log(
     apiFootball.enabled()
       ? "api-football: ids taken from TheSportsDB idAPIfootball"
-      : "api-football: skipped (no API_FOOTBALL_KEY)"
+      : "api-football: skipped (no API_FOOTBALL_KEY)",
   );
 
   if (pandascore.enabled()) {
@@ -148,7 +176,8 @@ export async function buildCatalog(log: (msg: string) => void = console.log) {
     const other = await pandascore.upcoming();
     const links = linkFixtures(base, other);
     const linkedPanda = new Set(links.values());
-    for (const [baseId, pandaId] of links) rows.get(baseId)!.sources.pandascore = pandaId;
+    for (const [baseId, pandaId] of links)
+      rows.get(baseId)!.sources.pandascore = pandaId;
     let added = 0;
     for (const p of other) {
       if (linkedPanda.has(p.sourceId)) continue;
@@ -156,7 +185,9 @@ export async function buildCatalog(log: (msg: string) => void = console.log) {
       rows.set(row.key, row);
       added++;
     }
-    log(`pandascore: ${other.length}, linked ${links.size}, added marketable ${added}`);
+    log(
+      `pandascore: ${other.length}, linked ${links.size}, added marketable ${added}`,
+    );
   } else {
     log("pandascore: skipped (no PANDASCORE_TOKEN)");
   }
@@ -169,7 +200,13 @@ export async function buildCatalog(log: (msg: string) => void = console.log) {
     }, {});
   return {
     provider: "thesportsdb",
-    providers: ["thesportsdb", "openligadb", "footballData", "apiFootball", "pandascore"],
+    providers: [
+      "thesportsdb",
+      "openligadb",
+      "footballData",
+      "apiFootball",
+      "pandascore",
+    ],
     sportsDbBase: SPORTSDB_BASE,
     lookupUrl: eventUrl("{idEvent}"),
     fixtures,
@@ -184,18 +221,27 @@ export async function buildCatalog(log: (msg: string) => void = console.log) {
 }
 
 /** Second on-chain feed for a catalog row, when a public provider covers it. */
-export function secondaryFor(f: Pick<Fixture, "sources">): { source: number; sourceRef: bigint } | undefined {
+export function secondaryFor(
+  f: Pick<Fixture, "sources">,
+): { source: number; sourceRef: bigint } | undefined {
   const ref = f.sources?.openligadb;
-  return ref && /^\d+$/.test(ref) ? { source: SOURCE_OPENLIGADB, sourceRef: BigInt(ref) } : undefined;
+  return ref && /^\d+$/.test(ref)
+    ? { source: SOURCE_OPENLIGADB, sourceRef: BigInt(ref) }
+    : undefined;
 }
 
 export function readCatalog(file = CATALOG_PATH): { fixtures: Fixture[] } {
-  const raw = JSON.parse(fs.readFileSync(file, "utf8")) as { fixtures: Fixture[] };
+  const raw = JSON.parse(fs.readFileSync(file, "utf8")) as {
+    fixtures: Fixture[];
+  };
   return { fixtures: raw.fixtures.map(normalizeFixture) };
 }
 
 /** Write via a temp file so the running app never reads half a catalog. */
-export function writeCatalog(catalog: Awaited<ReturnType<typeof buildCatalog>>, file = CATALOG_PATH) {
+export function writeCatalog(
+  catalog: Awaited<ReturnType<typeof buildCatalog>>,
+  file = CATALOG_PATH,
+) {
   const tmp = `${file}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(catalog));
   fs.renameSync(tmp, file);

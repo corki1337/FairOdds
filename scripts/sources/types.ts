@@ -1,6 +1,7 @@
 import type { FixtureCategoryId } from "../../app/src/lib/fixtures";
 
-export type SourceId = "thesportsdb" | "openligadb" | "footballData" | "apiFootball" | "pandascore";
+export type SourceId =
+  "thesportsdb" | "openligadb" | "footballData" | "apiFootball" | "pandascore";
 
 /** Football: score after regular time (90 min, no extra time, no penalties). Esports: maps won. */
 export type Score = { home: number; away: number };
@@ -15,6 +16,7 @@ export type SourceFixture = {
   home: string;
   away: string;
   startTime: number;
+  timeTBD?: boolean;
   status: SourceStatus;
   final: Score | null;
   /** Series format if applicable, e.g. "Bo1", "Bo3", "Bo5" */

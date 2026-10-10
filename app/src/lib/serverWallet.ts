@@ -12,10 +12,7 @@ import { utils } from "@coral-xyz/anchor";
  * Loads a Keypair from environment variables (JSON array or Base58).
  */
 export function loadServerKeypair(): Keypair | null {
-  const raw =
-    process.env.KEEPER_PRIVATE_KEY ||
-    process.env.CRANK_PRIVATE_KEY ||
-    process.env.ADMIN_PRIVATE_KEY;
+  const raw = process.env.KEEPER_PRIVATE_KEY || process.env.CRANK_PRIVATE_KEY;
   if (!raw) return null;
 
   try {
@@ -31,7 +28,7 @@ export function loadServerKeypair(): Keypair | null {
     }
     return Keypair.fromSecretKey(utils.bytes.bs58.decode(trimmed));
   } catch (err) {
-    console.error("Failed to parse server keypair from env:", err);
+    console.error("Invalid keeper signer configuration");
     return null;
   }
 }
@@ -40,11 +37,15 @@ export function loadServerKeypair(): Keypair | null {
  * Wraps a Keypair in a WalletContextState-compatible interface
  * suitable for backend / serverless transactions (cranks, keeper).
  */
-export function createServerWallet(keypair: Keypair): WalletContextState & { payer: Keypair } {
+export function createServerWallet(
+  keypair: Keypair,
+): WalletContextState & { payer: Keypair } {
   return {
     publicKey: keypair.publicKey,
     payer: keypair,
-    signTransaction: async <T extends Transaction | VersionedTransaction>(tx: T): Promise<T> => {
+    signTransaction: async <T extends Transaction | VersionedTransaction>(
+      tx: T,
+    ): Promise<T> => {
       if ("version" in tx) {
         tx.sign([keypair]);
       } else {
@@ -53,7 +54,7 @@ export function createServerWallet(keypair: Keypair): WalletContextState & { pay
       return tx;
     },
     signAllTransactions: async <T extends Transaction | VersionedTransaction>(
-      txs: T[]
+      txs: T[],
     ): Promise<T[]> => {
       for (const tx of txs) {
         if ("version" in tx) {
@@ -74,7 +75,7 @@ export function createServerWallet(keypair: Keypair): WalletContextState & { pay
     sendTransaction: async (
       tx: Transaction | VersionedTransaction,
       connection: Connection,
-      options?: SendOptions
+      options?: SendOptions,
     ) => {
       if ("version" in tx) {
         tx.sign([keypair]);

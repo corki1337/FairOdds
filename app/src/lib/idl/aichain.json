@@ -2,8 +2,9 @@
   "address": "4FNHp1MjhJTqZZqQq333qrDBduT9orpF4zMTdXXUT1dg",
   "metadata": {
     "name": "aichain",
-    "version": "0.2.0",
-    "spec": "0.1.0"
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Pari-mutuel prediction markets with yield on Solana"
   },
   "instructions": [
     {
@@ -141,6 +142,89 @@
       ]
     },
     {
+      "name": "attach_secondary_feed",
+      "discriminator": [
+        25,
+        61,
+        161,
+        197,
+        202,
+        216,
+        247,
+        179
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global"
+        },
+        {
+          "name": "market"
+        },
+        {
+          "name": "secondary",
+          "writable": true
+        },
+        {
+          "name": "secondary_feed"
+        },
+        {
+          "name": "feed_lock"
+        },
+        {
+          "name": "system_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "source",
+          "type": "u8"
+        },
+        {
+          "name": "source_ref",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "attach_market_policy",
+      "discriminator": [
+        229,
+        182,
+        36,
+        26,
+        28,
+        213,
+        160,
+        116
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global"
+        },
+        {
+          "name": "market"
+        },
+        {
+          "name": "policy",
+          "writable": true
+        },
+        {
+          "name": "system_program"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "place_bet",
       "discriminator": [
         222,
@@ -238,6 +322,9 @@
         },
         {
           "name": "system_program"
+        },
+        {
+          "name": "policy"
         },
         {
           "name": "token_program"
@@ -401,6 +488,16 @@
           "writable": true
         },
         {
+          "name": "policy"
+        },
+        {
+          "name": "global"
+        },
+        {
+          "name": "treasury",
+          "writable": true
+        },
+        {
           "name": "token_program"
         }
       ],
@@ -485,6 +582,16 @@
     },
     {
       "name": "withdraw_treasury",
+      "discriminator": [
+        40,
+        63,
+        122,
+        158,
+        144,
+        216,
+        83,
+        96
+      ],
       "accounts": [
         {
           "name": "authority",
@@ -510,20 +617,325 @@
           "name": "amount",
           "type": "u64"
         }
-      ],
-      "discriminator": [
-        40,
-        63,
-        122,
-        158,
-        144,
-        216,
-        83,
-        96
       ]
     },
     {
+      "name": "initialize_season",
+      "discriminator": [
+        48,
+        218,
+        111,
+        51,
+        235,
+        207,
+        4,
+        119
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global"
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "season",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "primary_feed"
+        },
+        {
+          "name": "secondary_feed"
+        },
+        {
+          "name": "feed_lock"
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "system_program"
+        },
+        {
+          "name": "rent"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "SeasonParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "place_season_bet",
+      "discriminator": [
+        245,
+        217,
+        190,
+        41,
+        173,
+        86,
+        221,
+        101
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global"
+        },
+        {
+          "name": "season",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "user_ata",
+          "writable": true
+        },
+        {
+          "name": "receipt",
+          "writable": true
+        },
+        {
+          "name": "park",
+          "writable": true
+        },
+        {
+          "name": "park_vault",
+          "writable": true
+        },
+        {
+          "name": "position",
+          "writable": true
+        },
+        {
+          "name": "yield_park_program"
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "system_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "selected",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "resolve_season",
+      "discriminator": [
+        44,
+        244,
+        172,
+        86,
+        103,
+        87,
+        41,
+        37
+      ],
+      "accounts": [
+        {
+          "name": "crank",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global"
+        },
+        {
+          "name": "season",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "treasury",
+          "writable": true
+        },
+        {
+          "name": "primary_feed"
+        },
+        {
+          "name": "secondary_feed"
+        },
+        {
+          "name": "feed_lock"
+        },
+        {
+          "name": "park",
+          "writable": true
+        },
+        {
+          "name": "park_vault",
+          "writable": true
+        },
+        {
+          "name": "position",
+          "writable": true
+        },
+        {
+          "name": "yield_park_program"
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "cancel_season",
+      "discriminator": [
+        82,
+        25,
+        165,
+        135,
+        6,
+        101,
+        78,
+        218
+      ],
+      "accounts": [
+        {
+          "name": "crank",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global"
+        },
+        {
+          "name": "season",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "treasury",
+          "writable": true
+        },
+        {
+          "name": "primary_feed"
+        },
+        {
+          "name": "secondary_feed"
+        },
+        {
+          "name": "feed_lock"
+        },
+        {
+          "name": "park",
+          "writable": true
+        },
+        {
+          "name": "park_vault",
+          "writable": true
+        },
+        {
+          "name": "position",
+          "writable": true
+        },
+        {
+          "name": "yield_park_program"
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claim_season",
+      "discriminator": [
+        155,
+        203,
+        46,
+        71,
+        104,
+        34,
+        55,
+        144
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global"
+        },
+        {
+          "name": "season",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "user_ata",
+          "writable": true
+        },
+        {
+          "name": "receipt",
+          "writable": true
+        },
+        {
+          "name": "treasury",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "faucet_mint",
+      "discriminator": [
+        47,
+        229,
+        221,
+        88,
+        0,
+        56,
+        156,
+        38
+      ],
       "accounts": [
         {
           "name": "user",
@@ -558,106 +970,34 @@
           "name": "associated_token_program"
         }
       ],
-      "args": [],
-      "discriminator": [
-        47,
-        229,
-        221,
-        88,
-        0,
-        56,
-        156,
-        38
-      ]
-    },
-    {
-      "name": "attach_secondary_feed",
-      "accounts": [
-        {
-          "name": "authority",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "global"
-        },
-        {
-          "name": "market"
-        },
-        {
-          "name": "secondary",
-          "writable": true
-        },
-        {
-          "name": "secondary_feed"
-        },
-        {
-          "name": "feed_lock"
-        },
-        {
-          "name": "system_program"
-        }
-      ],
-      "args": [
-        {
-          "name": "source",
-          "type": "u8"
-        },
-        {
-          "name": "source_ref",
-          "type": "u64"
-        }
-      ],
-      "discriminator": [
-        25,
-        61,
-        161,
-        197,
-        202,
-        216,
-        247,
-        179
-      ]
+      "args": []
     }
   ],
   "accounts": [
     {
-      "name": "GlobalConfig",
+      "name": "SeasonMarket",
       "discriminator": [
-        149,
-        8,
-        156,
-        202,
-        160,
-        252,
-        176,
-        217
+        109,
+        141,
+        182,
+        180,
+        223,
+        136,
+        145,
+        97
       ]
     },
     {
-      "name": "MarketState",
+      "name": "SeasonReceipt",
       "discriminator": [
-        0,
-        125,
-        123,
-        215,
-        95,
-        96,
-        164,
-        194
-      ]
-    },
-    {
-      "name": "UserBetReceipt",
-      "discriminator": [
-        99,
-        231,
-        4,
-        79,
-        221,
-        229,
-        5,
-        149
+        166,
+        157,
+        98,
+        51,
+        48,
+        209,
+        51,
+        62
       ]
     },
     {
@@ -674,6 +1014,45 @@
       ]
     },
     {
+      "name": "GlobalConfig",
+      "discriminator": [
+        149,
+        8,
+        156,
+        202,
+        160,
+        252,
+        176,
+        217
+      ]
+    },
+    {
+      "name": "MarketPolicy",
+      "discriminator": [
+        27,
+        76,
+        208,
+        7,
+        112,
+        188,
+        140,
+        28
+      ]
+    },
+    {
+      "name": "MarketState",
+      "discriminator": [
+        0,
+        125,
+        123,
+        215,
+        95,
+        96,
+        164,
+        194
+      ]
+    },
+    {
       "name": "SecondaryOracle",
       "discriminator": [
         31,
@@ -685,6 +1064,797 @@
         151,
         170
       ]
+    },
+    {
+      "name": "UserBetReceipt",
+      "discriminator": [
+        99,
+        231,
+        4,
+        79,
+        221,
+        229,
+        5,
+        149
+      ]
+    },
+    {
+      "name": "Park",
+      "discriminator": [
+        245,
+        32,
+        219,
+        159,
+        141,
+        141,
+        230,
+        177
+      ]
+    }
+  ],
+  "types": [
+    {
+      "name": "SeasonMarket",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "type": "u64"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "usdc_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "title",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "kind",
+            "type": "u8"
+          },
+          {
+            "name": "historical_demo",
+            "type": "bool"
+          },
+          {
+            "name": "cutoff",
+            "type": "i64"
+          },
+          {
+            "name": "end_time",
+            "type": "i64"
+          },
+          {
+            "name": "resolve_deadline",
+            "type": "i64"
+          },
+          {
+            "name": "feeds",
+            "type": {
+              "array": [
+                "pubkey",
+                2
+              ]
+            }
+          },
+          {
+            "name": "hashes",
+            "type": {
+              "array": [
+                {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                2
+              ]
+            }
+          },
+          {
+            "name": "participants",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "SeasonParticipant"
+                }
+              }
+            }
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "MarketStatus"
+              }
+            }
+          },
+          {
+            "name": "winner",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
+            "name": "cancel_reason",
+            "type": "u8"
+          },
+          {
+            "name": "total_pool",
+            "type": "u64"
+          },
+          {
+            "name": "payout_pool",
+            "type": "u64"
+          },
+          {
+            "name": "claimed_stake",
+            "type": "u64"
+          },
+          {
+            "name": "yield_shares",
+            "type": "u64"
+          },
+          {
+            "name": "yield_harvested",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "vault_bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SeasonParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "type": "u64"
+          },
+          {
+            "name": "title",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "kind",
+            "type": "u8"
+          },
+          {
+            "name": "historical_demo",
+            "type": "bool"
+          },
+          {
+            "name": "cutoff",
+            "type": "i64"
+          },
+          {
+            "name": "end_time",
+            "type": "i64"
+          },
+          {
+            "name": "resolve_deadline",
+            "type": "i64"
+          },
+          {
+            "name": "names",
+            "type": {
+              "vec": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SeasonParticipant",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "name",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "pool",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SeasonReceipt",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "selected",
+            "type": "u8"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "claimed",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FaucetReceipt",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "last_claim",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GlobalConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "usdc_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "yield_park",
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketPolicy",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "cancel_one_sided",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "match_id",
+            "type": "u64"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "usdc_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "oracle_feed",
+            "docs": [
+              "Switchboard PullFeed pinned at creation."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "feed_hash",
+            "docs": [
+              "Job definition hash of `oracle_feed` at creation; resolve rejects any other."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "start_time",
+            "type": "i64"
+          },
+          {
+            "name": "end_time",
+            "type": "i64"
+          },
+          {
+            "name": "resolve_deadline",
+            "docs": [
+              "After this, anyone may cancel and every bettor gets a refund."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "pool_team_a",
+            "type": "u64"
+          },
+          {
+            "name": "pool_team_b",
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "MarketStatus"
+              }
+            }
+          },
+          {
+            "name": "winning_team",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
+            "name": "cancel_reason",
+            "type": "u8"
+          },
+          {
+            "name": "team_a",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "team_b",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "total_yield_harvested",
+            "type": "u64"
+          },
+          {
+            "name": "locked_principal",
+            "type": "u64"
+          },
+          {
+            "name": "yield_shares",
+            "type": "u64"
+          },
+          {
+            "name": "payout_pool",
+            "docs": [
+              "Amount distributed pro-rata to winners (Resolved) or all bettors (Cancelled)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "claimed_stake",
+            "docs": [
+              "Sum of stakes whose receipts were already paid out."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "vault_bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Open"
+          },
+          {
+            "name": "Locked"
+          },
+          {
+            "name": "Resolved"
+          },
+          {
+            "name": "Cancelled"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SecondaryOracle",
+      "docs": [
+        "Second Switchboard feed pinned to a market from an independent provider. When present,",
+        "`resolve_market` settles only if both feeds report the same score difference."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "feed",
+            "type": "pubkey"
+          },
+          {
+            "name": "feed_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "source",
+            "type": "u8"
+          },
+          {
+            "name": "source_ref",
+            "docs": [
+              "Provider's own event id, so any client can rebuild the job and request an update."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserBetReceipt",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "team_selected",
+            "type": "u8"
+          },
+          {
+            "name": "amount_staked",
+            "type": "u64"
+          },
+          {
+            "name": "claimed",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Park",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_shares",
+            "type": "u64"
+          },
+          {
+            "name": "total_deposits",
+            "type": "u64"
+          },
+          {
+            "name": "reserve_seeded",
+            "type": "u64"
+          },
+          {
+            "name": "apr_bps",
+            "type": "u16"
+          },
+          {
+            "name": "last_update_ts",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "vault_bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BetPlaced",
+      "type": {
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "team",
+            "type": "u8"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "BetRefunded",
+      "type": {
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "MarketInitialized",
+      "type": {
+        "fields": [
+          {
+            "name": "match_id",
+            "type": "u64"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "oracle_feed",
+            "type": "pubkey"
+          },
+          {
+            "name": "feed_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "start_time",
+            "type": "i64"
+          },
+          {
+            "name": "end_time",
+            "type": "i64"
+          },
+          {
+            "name": "resolve_deadline",
+            "type": "i64"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "MarketResolved",
+      "type": {
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "docs": [
+              "MAX when cancelled on deadline."
+            ],
+            "name": "oracle_result",
+            "type": "u8"
+          },
+          {
+            "name": "winning_team",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
+            "name": "cancel_reason",
+            "type": "u8"
+          },
+          {
+            "name": "payout_pool",
+            "type": "u64"
+          },
+          {
+            "name": "yield_harvested",
+            "type": "u64"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "MarketLocked",
+      "type": {
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "principal",
+            "type": "u64"
+          },
+          {
+            "name": "shares",
+            "type": "u64"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "ProtocolFeePaid",
+      "type": {
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "fee",
+            "type": "u64"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "WinningsClaimed",
+      "type": {
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "payout",
+            "type": "u64"
+          }
+        ],
+        "kind": "struct"
+      }
     }
   ],
   "errors": [
@@ -899,260 +2069,97 @@
       "msg": "Primary and secondary sources report different results"
     }
   ],
-  "types": [
+  "events": [
     {
-      "name": "MarketStatus",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Open"
-          },
-          {
-            "name": "Locked"
-          },
-          {
-            "name": "Resolved"
-          },
-          {
-            "name": "Cancelled"
-          }
-        ]
-      }
+      "discriminator": [
+        88,
+        88,
+        145,
+        226,
+        126,
+        206,
+        32,
+        0
+      ],
+      "name": "BetPlaced"
     },
     {
-      "name": "GlobalConfig",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "authority",
-            "type": "pubkey"
-          },
-          {
-            "name": "usdc_mint",
-            "type": "pubkey"
-          },
-          {
-            "name": "treasury",
-            "type": "pubkey"
-          },
-          {
-            "name": "yield_park",
-            "type": "pubkey"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          }
-        ]
-      }
+      "discriminator": [
+        32,
+        234,
+        173,
+        102,
+        106,
+        4,
+        2,
+        203
+      ],
+      "name": "BetRefunded"
     },
     {
-      "name": "MarketState",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "match_id",
-            "type": "u64"
-          },
-          {
-            "name": "authority",
-            "type": "pubkey"
-          },
-          {
-            "name": "usdc_mint",
-            "type": "pubkey"
-          },
-          {
-            "name": "oracle_feed",
-            "type": "pubkey"
-          },
-          {
-            "name": "feed_hash",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          },
-          {
-            "name": "start_time",
-            "type": "i64"
-          },
-          {
-            "name": "end_time",
-            "type": "i64"
-          },
-          {
-            "name": "resolve_deadline",
-            "type": "i64"
-          },
-          {
-            "name": "pool_team_a",
-            "type": "u64"
-          },
-          {
-            "name": "pool_team_b",
-            "type": "u64"
-          },
-          {
-            "name": "status",
-            "type": {
-              "defined": {
-                "name": "MarketStatus"
-              }
-            }
-          },
-          {
-            "name": "winning_team",
-            "type": {
-              "option": "u8"
-            }
-          },
-          {
-            "name": "cancel_reason",
-            "type": "u8"
-          },
-          {
-            "name": "team_a",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          },
-          {
-            "name": "team_b",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          },
-          {
-            "name": "total_yield_harvested",
-            "type": "u64"
-          },
-          {
-            "name": "locked_principal",
-            "type": "u64"
-          },
-          {
-            "name": "yield_shares",
-            "type": "u64"
-          },
-          {
-            "name": "payout_pool",
-            "type": "u64"
-          },
-          {
-            "name": "claimed_stake",
-            "type": "u64"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "vault_bump",
-            "type": "u8"
-          }
-        ]
-      }
+      "discriminator": [
+        134,
+        160,
+        122,
+        87,
+        50,
+        3,
+        255,
+        81
+      ],
+      "name": "MarketInitialized"
     },
     {
-      "name": "UserBetReceipt",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "user",
-            "type": "pubkey"
-          },
-          {
-            "name": "market",
-            "type": "pubkey"
-          },
-          {
-            "name": "team_selected",
-            "type": "u8"
-          },
-          {
-            "name": "amount_staked",
-            "type": "u64"
-          },
-          {
-            "name": "claimed",
-            "type": "bool"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          }
-        ]
-      }
+      "discriminator": [
+        89,
+        67,
+        230,
+        95,
+        143,
+        106,
+        199,
+        202
+      ],
+      "name": "MarketResolved"
     },
     {
-      "name": "FaucetReceipt",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "user",
-            "type": "pubkey"
-          },
-          {
-            "name": "last_claim",
-            "type": "i64"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          }
-        ]
-      }
+      "discriminator": [
+        57,
+        30,
+        242,
+        116,
+        238,
+        156,
+        185,
+        189
+      ],
+      "name": "MarketLocked"
     },
     {
-      "name": "SecondaryOracle",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "market",
-            "type": "pubkey"
-          },
-          {
-            "name": "feed",
-            "type": "pubkey"
-          },
-          {
-            "name": "feed_hash",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          },
-          {
-            "name": "source",
-            "type": "u8"
-          },
-          {
-            "name": "source_ref",
-            "type": "u64"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          }
-        ]
-      }
+      "discriminator": [
+        224,
+        102,
+        140,
+        88,
+        121,
+        78,
+        18,
+        63
+      ],
+      "name": "ProtocolFeePaid"
+    },
+    {
+      "discriminator": [
+        187,
+        184,
+        29,
+        196,
+        54,
+        117,
+        70,
+        150
+      ],
+      "name": "WinningsClaimed"
     }
   ]
 }

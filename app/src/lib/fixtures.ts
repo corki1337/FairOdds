@@ -4,16 +4,13 @@
  * primary Switchboard job looks up when a market settles. Rows known only to another
  * provider are listed but `marketable: false`: there is no public job that could settle them.
  */
-export type FixtureCategoryId = "esports_cs2" | "esports_lol" | "esports" | "football";
+export type FixtureCategoryId =
+  "esports_cs2" | "esports_lol" | "esports" | "football";
 
 export type FixtureStatus = "scheduled" | "live" | "finished";
 
 export type FixtureSourceId =
-  | "thesportsdb"
-  | "openligadb"
-  | "footballData"
-  | "apiFootball"
-  | "pandascore";
+  "thesportsdb" | "openligadb" | "footballData" | "apiFootball" | "pandascore";
 
 /** Ids of providers that only carry this row; a market can never be created for them. */
 export const UNMARKETABLE_ID_OFFSET = 9_000_000_000_000;
@@ -32,6 +29,7 @@ export type Fixture = {
   teamA: string;
   teamB: string;
   startTime: number;
+  timeTBD?: boolean;
   /** Earliest time the provider is expected to carry a final score. */
   endTime: number;
   finished: boolean;
@@ -69,14 +67,12 @@ export const CATEGORIES: FixtureCategory[] = (
   Object.keys(CATEGORY_LABELS) as FixtureCategoryId[]
 ).map((id) => ({ id, label: CATEGORY_LABELS[id] }));
 
-export const CATEGORY_NAV: { id: FixtureCategoryId | "all"; label: string }[] = [
-  { id: "all", label: "Wszystkie" },
-  ...CATEGORIES,
-];
+export const CATEGORY_NAV: { id: FixtureCategoryId | "all"; label: string }[] =
+  [{ id: "all", label: "Wszystkie" }, ...CATEGORIES];
 
 export function fixtureStatus(
   f: Pick<Fixture, "startTime" | "endTime" | "finished">,
-  nowSec = Math.floor(Date.now() / 1000)
+  nowSec = Math.floor(Date.now() / 1000),
 ): FixtureStatus {
   if (f.finished || nowSec >= f.endTime) return "finished";
   if (nowSec >= f.startTime) return "live";
@@ -91,7 +87,9 @@ export const SOURCE_LABELS: Record<FixtureSourceId, string> = {
   pandascore: "PandaScore",
 };
 
-export function sourceUrlOf(f: Pick<Fixture, "id" | "marketable" | "sources">): string {
+export function sourceUrlOf(
+  f: Pick<Fixture, "id" | "marketable" | "sources">,
+): string {
   const panda = f.sources?.pandascore;
   if (f.id >= UNMARKETABLE_ID_OFFSET || (!f.marketable && panda)) {
     return panda ? `https://api.pandascore.co/matches/${panda}` : "";
@@ -100,16 +98,21 @@ export function sourceUrlOf(f: Pick<Fixture, "id" | "marketable" | "sources">): 
 }
 
 /** Rows written before multi-source catalogs had no `key`/`sources`; treat them as TheSportsDB. */
-export function normalizeFixture(f: Partial<Fixture> & Omit<Fixture, "key" | "marketable" | "sources">): Fixture {
+export function normalizeFixture(
+  f: Partial<Fixture> & Omit<Fixture, "key" | "marketable" | "sources">,
+): Fixture {
   return {
     ...f,
     key: f.key ?? `thesportsdb:${f.id}`,
-    marketable: f.marketable ?? true,
+    marketable: !f.timeTBD && (f.marketable ?? true),
     sources: f.sources ?? { thesportsdb: String(f.id) },
   };
 }
 
-export function toFixtureView(f: Fixture, nowSec = Math.floor(Date.now() / 1000)): FixtureView {
+export function toFixtureView(
+  f: Fixture,
+  nowSec = Math.floor(Date.now() / 1000),
+): FixtureView {
   return {
     ...f,
     matchId: String(f.id),
@@ -118,8 +121,12 @@ export function toFixtureView(f: Fixture, nowSec = Math.floor(Date.now() / 1000)
   };
 }
 
-export function scoreLabel(f: Pick<Fixture, "scoreA" | "scoreB">): string | null {
-  return f.scoreA === null || f.scoreB === null ? null : `${f.scoreA} : ${f.scoreB}`;
+export function scoreLabel(
+  f: Pick<Fixture, "scoreA" | "scoreB">,
+): string | null {
+  return f.scoreA === null || f.scoreB === null
+    ? null
+    : `${f.scoreA} : ${f.scoreB}`;
 }
 
 export function outcomeLabel(f: Fixture): string {

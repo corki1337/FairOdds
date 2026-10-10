@@ -12,4 +12,6 @@ pub enum YieldError {
     InsufficientLiquidity,
     #[msg("Invalid APR")]
     InvalidApr,
+    #[msg("Invalid settlement PDA") ]
+    InvalidSettlementOwner,
 }

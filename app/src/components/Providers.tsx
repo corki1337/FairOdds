@@ -1,5 +1,6 @@
 "use client";
 
+import { LanguageProvider } from "./Language";
 import React, { useMemo } from "react";
 import {
   ConnectionProvider,
@@ -28,15 +29,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ConnectionProvider
-        endpoint={RPC_URL}
-        config={{ commitment: "confirmed", fetch: retryingFetch }}
-      >
-        <WalletProvider wallets={wallets} autoConnect onError={onError}>
-          <WalletModalProvider>{children}</WalletModalProvider>
-        </WalletProvider>
-      </ConnectionProvider>
-    </QueryClientProvider>
+    <LanguageProvider>
+      <QueryClientProvider client={queryClient}>
+        <ConnectionProvider
+          endpoint={RPC_URL}
+          config={{ commitment: "confirmed", fetch: retryingFetch }}
+        >
+          <WalletProvider wallets={wallets} autoConnect onError={onError}>
+            <WalletModalProvider>{children}</WalletModalProvider>
+          </WalletProvider>
+        </ConnectionProvider>
+      </QueryClientProvider>
+    </LanguageProvider>
   );
 }

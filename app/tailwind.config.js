@@ -4,15 +4,15 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        ink: "#0b1220",
-        panel: "#121a2b",
-        accent: "#3dffa8",
+        ink: "#101719",
+        panel: "#172124",
+        accent: "#baff71",
         warn: "#ffb020",
-        mute: "#8b9bb4",
+        mute: "#9caeb1",
       },
       fontFamily: {
-        display: ["\"Space Grotesk\"", "system-ui", "sans-serif"],
-        body: ["\"IBM Plex Sans\"", "system-ui", "sans-serif"],
+        display: ['"Space Grotesk"', "system-ui", "sans-serif"],
+        body: ['"IBM Plex Sans"', "system-ui", "sans-serif"],
       },
     },
   },

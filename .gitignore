@@ -17,7 +17,7 @@ demo-state.json
 .house-bettors.json
 fixture-markets.json
 smoke-result.json
-data/
+/data/
 app/src/data/*.tmp
 fixture-markets.json
 wallet*.json
@@ -34,3 +34,7 @@ aichain-extracted.txt
 validator.out
 validator.err
 
+
+.env.*
+!.env.example
+!app/.env.example

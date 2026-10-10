@@ -4,7 +4,8 @@ use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 use crate::errors::AichainError;
 use crate::events::WinningsClaimed;
 use crate::market_signer;
-use crate::math::pari_mutuel_payout;
+use crate::math::{pari_mutuel_payout, profit_fee};
+use crate::state::{GlobalConfig, SEED_GLOBAL, SEED_POLICY, SEED_TREASURY, load_policy};
 use crate::state::{
     MarketState, MarketStatus, UserBetReceipt, SEED_MARKET, SEED_RECEIPT, SEED_VAULT, SEED_VERSION,
 };
@@ -45,6 +46,13 @@ pub struct ClaimWinnings<'info> {
     )]
     pub receipt: Account<'info, UserBetReceipt>,
 
+    /// CHECK: mandatory derived address prevents hiding an opted-in fee policy
+    #[account(seeds = [SEED_VERSION, SEED_POLICY, market.key().as_ref()], bump)]
+    pub policy: UncheckedAccount<'info>,
+    #[account(seeds = [SEED_VERSION, SEED_GLOBAL], bump = global.bump, has_one = treasury)]
+    pub global: Account<'info, GlobalConfig>,
+    #[account(mut, seeds = [SEED_VERSION, SEED_TREASURY, global.key().as_ref()], bump)]
+    pub treasury: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
 }
 
@@ -61,7 +69,19 @@ pub fn handler(ctx: Context<ClaimWinnings>) -> Result<()> {
     let stake = receipt.amount_staked;
     let payout = pari_mutuel_payout(stake, market.pool_of(winning), market.payout_pool)?;
 
-    if payout > 0 {
+    let policy = load_policy(&ctx.accounts.policy.to_account_info(), &market.key())?;
+    let fee = profit_fee(payout, stake, policy.map(|p| p.fee_bps).unwrap_or(0))?;
+    let net = payout.checked_sub(fee).ok_or(error!(AichainError::MathOverflow))?;
+    if fee > 0 {
+        market_signer!(market, id, bump, seeds);
+        token::transfer(CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer { from: ctx.accounts.vault.to_account_info(), to: ctx.accounts.treasury.to_account_info(), authority: ctx.accounts.market.to_account_info() },
+            &[seeds],
+        ), fee)?;
+        emit!(crate::events::ProtocolFeePaid { market: market.key(), user: ctx.accounts.user.key(), fee });
+    }
+    if net > 0 {
         market_signer!(market, id, bump, seeds);
         token::transfer(
             CpiContext::new_with_signer(
@@ -73,7 +93,7 @@ pub fn handler(ctx: Context<ClaimWinnings>) -> Result<()> {
                 },
                 &[seeds],
             ),
-            payout,
+            net,
         )?;
     }
 
@@ -87,7 +107,7 @@ pub fn handler(ctx: Context<ClaimWinnings>) -> Result<()> {
     emit!(WinningsClaimed {
         market: market.key(),
         user: ctx.accounts.user.key(),
-        payout,
+        payout: net,
     });
 
     Ok(())

@@ -1,7 +1,7 @@
-# Prezentacja FairOdds
+# FairOdds presentation
 
-1. Otwórz `slides.html` w Chrome/Edge
-2. Drukuj → Zapisz jako PDF, landscape, tła włączone
-3. Slajdy: `slides.html` oraz zarys w `slides.md` (≤10 slajdów)
+Eight English slides use the implemented fee model and explicitly identify the demo reserve and historical seasons. Source: `slides.html` / `slides.md`. PDF: `../output/pdf/fairodds-presentation.pdf`.
 
-Backup: nagraj bet → lock → resolve → claim *przed* sceną. Link publiczny jest wymagany przez zasady.
+Rebuild with Node 24: `npm ci --legacy-peer-deps`, `npx playwright install chromium`, `npm run slides:pdf`. All eight PDF pages were rendered and visually checked. Browser print also works with backgrounds enabled and CSS page size.
+
+Follow `../docs/DEMO_CHECKLIST.md` for the ≤3-minute real wallet demo. `../docs/qa/ui-walkthrough.webm` is a read-only UI verification recording; it does not show a signed bet, claim or deployed new program. Owner must capture those transactions after upgrade and environment configuration.
