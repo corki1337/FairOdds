@@ -157,10 +157,11 @@ export async function runKeeper(signer?: ReturnType<typeof loadServerKeypair>) {
           guard,
         );
         actions.push({ id: x.account.matchId.toString(), ...result });
-      } catch {
+      } catch (err: any) {
         actions.push({
           id: x.account.matchId.toString(),
           action: "retry_later",
+          error: err?.message || String(err),
         });
       }
     }
