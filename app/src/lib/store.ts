@@ -69,12 +69,16 @@ export async function withLease<T>(key: string, fn: () => Promise<T>) {
   try {
     return await fn();
   } finally {
-    await redis([
-      "EVAL",
-      "if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end",
-      1,
-      lock,
-      value,
-    ]);
+    try {
+      await redis([
+        "EVAL",
+        "if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end",
+        1,
+        lock,
+        value,
+      ]);
+    } catch (err) {
+      console.error("Keeper lease release failed:", err);
+    }
   }
 }

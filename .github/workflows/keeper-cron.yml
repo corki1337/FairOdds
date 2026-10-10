@@ -2,8 +2,8 @@ name: Keeper Cron Crank
 
 on:
   schedule:
-    # Run every 15 minutes
-    - cron: '*/15 * * * *'
+    # Run every 2 minutes (best-effort; GitHub may delay on free tier)
+    - cron: '*/2 * * * *'
   workflow_dispatch:
     inputs:
       manual_trigger:

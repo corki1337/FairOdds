@@ -107,31 +107,40 @@ export async function runKeeper(signer?: ReturnType<typeof loadServerKeypair>) {
       ? Math.floor(Date.now() / 60000) % ordered.length
       : 0;
     if (Date.now() - begin < 45000) {
-      const seasons = await (program.account as any).seasonMarket.all();
-      for (const x of seasons) {
-        if (Date.now() - begin > 45000 || actions.length >= 5) break;
-        const m = describeSeason(x.publicKey, x.account, program.programId);
-        if (m.status !== "open" || Math.floor(Date.now() / 1000) < m.endTime)
-          continue;
-        try {
-          const signature = await settleSeasonTx(
-            program,
-            connection,
-            wallet,
-            x.publicKey,
-            m,
-            Math.floor(Date.now() / 1000) >= m.resolveDeadline,
-            manifests.find((s) => s.id === m.id),
-          );
-          actions.push({
-            id: m.id,
-            type: "season",
-            action: "settled",
-            signature,
-          });
-        } catch {
-          actions.push({ id: m.id, type: "season", action: "retry_later" });
+      try {
+        const seasons = await (program.account as any).seasonMarket.all();
+        for (const x of seasons) {
+          if (Date.now() - begin > 45000 || actions.length >= 5) break;
+          const m = describeSeason(x.publicKey, x.account, program.programId);
+          if (m.status !== "open" || Math.floor(Date.now() / 1000) < m.endTime)
+            continue;
+          try {
+            const signature = await settleSeasonTx(
+              program,
+              connection,
+              wallet,
+              x.publicKey,
+              m,
+              Math.floor(Date.now() / 1000) >= m.resolveDeadline,
+              manifests.find((s) => s.id === m.id),
+            );
+            actions.push({
+              id: m.id,
+              type: "season",
+              action: "settled",
+              signature,
+            });
+          } catch {
+            actions.push({ id: m.id, type: "season", action: "retry_later" });
+          }
         }
+      } catch (err) {
+        console.error("Season keeper scan failed:", err);
+        actions.push({
+          type: "season",
+          action: "scan_failed",
+          reason: err instanceof Error ? err.message : String(err),
+        });
       }
     }
     for (const x of [
@@ -155,7 +164,16 @@ export async function runKeeper(signer?: ReturnType<typeof loadServerKeypair>) {
         });
       }
     }
-    await writeStore("anomalies", ANOMALIES_PATH, anomalies);
+    try {
+      await writeStore("anomalies", ANOMALIES_PATH, anomalies);
+    } catch (err) {
+      console.error("Anomalies write failed:", err);
+      actions.push({
+        type: "anomalies",
+        action: "write_failed",
+        reason: err instanceof Error ? err.message : String(err),
+      });
+    }
     return { ok: true, actions, timestamp: Math.floor(Date.now() / 1000) };
   });
 }
