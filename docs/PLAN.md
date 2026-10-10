@@ -19,7 +19,7 @@ Kompletny, ustrukturyzowany plan techniczny i submissionowy do wygrania w hackat
 ---
 
 ### 2. 🤖 API pod Autonomicznych Agentów AI (Solana Agent Kit & Eliza)
-*Cel:* Rozwiązanie problemu pustych rynków w modelu Pari-Mutuel poprzez automatycznych arbitrów AI.
+*Cel:* Mitygacja problemu pustych rynków w modelu Pari-Mutuel poprzez infrastrukturę dla agentów AI. Ponieważ nie ma gwarancji, że zewnętrzne autonomiczne agenty same z siebie zechcą deponować kapitał na rynkach, celem jest dostarczenie dedykowanych endpointów umożliwiających botom i agentom łatwy arbitraż, symulację aktywności oraz równoważenie pul (market making / liquidity bootstrap) demo-kapitałem.
 - [ ] **Dedykowany Endpoint API (`app/src/app/api/agent/market/[id]/route.ts`):**
   - **GET:** Zwraca stan rynku w formacie JSON (wielkość pul, kickoff, adresy PDA, informację czy jedna strona ma 0 stawek).
   - **POST:** Przyjmuje `{ userPubkey, team, amount }` i zwraca gotową transakcję `place_bet` dla bota.
@@ -118,7 +118,36 @@ Kompletny, ustrukturyzowany plan techniczny i submissionowy do wygrania w hackat
 - [ ] Sezon: tabela drużyn z pulą przy każdym wierszu i jednym polem stawki.
 - [ ] Telefon w tym samym układzie, jedna kolumna, nie osobna łatka na starym layoucie.
 - [ ] PL/EN na nowych tekstach, nie na starej skórce.
+- [ ] Czytelna data i godzina kickoffu na każdym kafelku meczu i podstronie `/markets/[id]` (nigdy puste pole daty).
 - [ ] Po przebudowie sprawdzić w przeglądarce listę, mecz, sezon i telefon.
+
+---
+
+### 18. 🔌 Developer & Creator Bot API / SDK (Otwarte API dla Twórców Własnych Botów)
+*Cel:* Umożliwienie zewnętrznym twórcom, programistom i traderom budowania własnych botów obstawiających (np. boty arbitrażowe, boty na Telegram/Discord, skrypty quant/algorytmiczne) bez konieczności integrowania frameworków AI/LLM.
+- **Różnica względem Punktu 2 (Agent AI):** Punkt 2 jest zoptymalizowany pod autonomiczne frameworki LLM (Solana Agent Kit / Eliza z prompt-toolami i demo balancingiem). Punkt 18 to czyste, publiczne REST API dla programistów tworzących tradycyjne boty z własną strategią i portfelem.
+- [ ] **Publiczne Endpointy REST (`app/src/app/api/v1/...`):**
+  - **`GET /api/v1/markets`:** Zwraca listę wszystkich rynków (Open, Locked, Settled) z kursami, wielkościami pul i czasem do kickoffu.
+  - **`GET /api/v1/markets/[id]`:** Granularny stan rynku (pula A/B, mnożniki, PDA vaultu, status wyroczni).
+  - **`POST /api/v1/markets/[id]/bet`:** Przyjmuje `{ wallet: string, side: 0 | 1, amount: number }` i zwraca zserializowaną transakcję (Base64) gotową do lokalnego podpisania.
+- [ ] **Bezpieczeństwo Non-Custodial:** API nigdy nie przyjmuje kluczy prywatnych — bot podpisuje wygenerowaną transakcję lokalnie po swojej stronie.
+- [ ] **Developer Starter Kit (`examples/bot/simple-bot.ts`):**
+  - Referencyjny, ~40-linijkowy skrypt w TypeScript/Node.js demonstrujący pełny przepływ bota: odpytanie rynku o kursy -> decyzja o stawce -> pobranie tx z API -> lokalne podpisanie i wysłanie na Devnet.
+- [ ] **Dokumentacja API dla Społeczności (`docs/BOT_API.md`):** Zwięzły przewodnik po endpointach z przykładami w `curl` i TypeScript.
+
+---
+
+### 19. 📅 Audyt Danych ze Źródeł API i Naprawa Dat / Kickoffu (TheSportsDB, PandaScore itp.)
+*Cel:* Wyeliminowanie problemu meczów bez widocznej daty na froncie poprzez dokładne sprawdzenie co zwracają zewnętrzne API i uodpornienie parsowania kickoffu.
+- [ ] **Inspekcja i audyt payloadów ze źródeł (`scripts/sources/*`):**
+  - **TheSportsDB:** zbadać formaty `strTimestamp`, `dateEvent` i `strTime` — w wielu meczach brakuje godziny lub strefa czasowa jest niejednoznaczna, przez co `startOf()` potrafi zwracać `null` lub pomijać mecze.
+  - **OpenLigaDB / football-data.org:** upewnić się, że `matchDateTimeUTC` i `utcDate` są poprawnie mapowane na unix timestamp bez przesunięć strefowych.
+  - **PandaScore:** sprawdzić przypadki z pustym `begin_at` przy meczach scheduled (użycie `scheduled_at` lub `original_scheduled_at`).
+- [ ] **Uodpornienie parserów (Fallbacki):**
+  - Gdy brakuje dokładnej godziny, nie odrzucać meczu: fallback do godziny 12:00 UTC danej daty z flagą `timeTBD: true` (np. oznaczenie w UI: *Data potwierdzona, godzina do ustalenia*).
+- [ ] **Naprawa wyświetlania na frontendzie:**
+  - Dodanie daty/godziny meczu na podstronie rynku (`app/src/app/markets/[id]/page.tsx`), gdzie obecnie czas w ogóle się nie renderuje.
+  - W liście meczów (`app/src/app/page.tsx`): nie zastępować daty samym napisem „W grze” — wyświetlać zarówno datę/godzinę, jak i status.
 
 ---
 
@@ -140,15 +169,15 @@ Kompletny, ustrukturyzowany plan techniczny i submissionowy do wygrania w hackat
 ---
 
 ### 12. 🛡️ Devnet RPC i Ochrona przed Błędem 429
-- [ ] Publiczny devnet RPC (`api.devnet.solana.com`) ma rygorystyczny rate limit.
-- [ ] Skonfigurowanie zapasowych endpointów w `NEXT_PUBLIC_RPC_FALLBACKS` w `app/src/lib/rpc.ts` (np. darmowy klucz Helius/QuickNode), aby sędziowie nie napotkali błędu 429 podczas testów na żywo.
+- [x] **Zaimplementowany mechanizm w kodzie:** `app/src/lib/rpc.ts` posiada `retryingFetch` z wykładniczym backoffem na błędy 429/408/500 oraz rotacją po fallbackach z `NEXT_PUBLIC_RPC_FALLBACKS`.
+- [ ] **Opcjonalny dedykowany RPC:** Podpięcie prywatnego klucza (np. Helius lub QuickNode Devnet) w zmiennych środowiskowych Vercela, aby uniknąć limitów domyślnego publicznego RPC Solany pod dużym ruchem.
 
 ---
 
 ### 13. ☁️ Live Demo na Vercelu (HTTPS)
-- [ ] Wdrożenie aplikacji z katalogu `app/` na Vercel (darmowy tier z automatycznym SSL).
-- [ ] Podpięcie zmiennych środowiskowych devnet (`NEXT_PUBLIC_RPC_URL`, mint USDC, program IDs).
-- [ ] Uzyskanie publicznego adresu URL do formularza Colosseum oraz dla Blinków.
+- [x] Wdrożenie aplikacji z katalogu `app/` na Vercel (darmowy tier z automatycznym SSL — wdrożone i aktywne).
+- [x] Podpięcie zmiennych środowiskowych devnet (`NEXT_PUBLIC_RPC_URL`, mint USDC, program IDs, keeper cron auth).
+- [ ] Wpisanie oficjalnego publicznego adresu URL z Vercela do zgłoszenia Colosseum oraz dla Blinków (`actions.json`).
 
 ---
 
