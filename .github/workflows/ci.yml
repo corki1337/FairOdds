@@ -23,11 +23,21 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install root dependencies
         run: npm ci --legacy-peer-deps
+
+      - name: Install app types used by shared scripts
+        working-directory: app
+        run: npm ci --legacy-peer-deps
+
+      - name: Typecheck scripts
+        run: npx tsc --noEmit
+
+      - name: Test unsigned API transactions
+        run: npm run test:api
 
       - name: Run Sources & Consensus Tests
         run: npm run test:sources
@@ -43,9 +53,12 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: app/package-lock.json
+
+      - name: Install shared script dependencies
+        run: npm ci --legacy-peer-deps
 
       - name: Install app dependencies
         working-directory: app
@@ -102,5 +115,5 @@ jobs:
       - name: Check yield_park program
         run: cargo check --manifest-path programs/yield_park/Cargo.toml --lib
 
-      - name: Test yield_park lib
-        run: cargo test --manifest-path programs/yield_park/Cargo.toml --lib
+      - name: Test both programs
+        run: npm run test:rust
