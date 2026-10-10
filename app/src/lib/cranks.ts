@@ -77,7 +77,9 @@ export async function sendV0(
   let tx = new VersionedTransaction(msg);
   if (opts.signers?.length) tx.sign(opts.signers);
   tx = await wallet.signTransaction(tx);
-  const sig = await connection.sendTransaction(tx);
+  const sig = await connection.sendTransaction(tx, {
+    skipPreflight: true,
+  });
   const res = await connection.confirmTransaction(
     { signature: sig, blockhash, lastValidBlockHeight },
     "confirmed",

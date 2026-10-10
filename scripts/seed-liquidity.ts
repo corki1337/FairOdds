@@ -5,6 +5,11 @@
  *   ANCHOR_WALLET=~/.config/solana/id.json \
  *   npx ts-node scripts/seed-liquidity.ts [matchId...]
  */
+if (!process.env.ANCHOR_PROVIDER_URL) process.env.ANCHOR_PROVIDER_URL = "https://api.devnet.solana.com";
+if (!process.env.ANCHOR_WALLET) {
+  const os = require("os"), path = require("path");
+  process.env.ANCHOR_WALLET = path.join(os.homedir(), ".config", "solana", "id.json");
+}
 import * as anchor from "@coral-xyz/anchor";
 import { Idl, Program } from "@coral-xyz/anchor";
 import {
