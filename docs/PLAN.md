@@ -118,6 +118,7 @@ Kompletny, ustrukturyzowany plan techniczny i submissionowy do wygrania w hackat
 - [ ] Sezon: tabela drużyn z pulą przy każdym wierszu i jednym polem stawki.
 - [ ] Telefon w tym samym układzie, jedna kolumna, nie osobna łatka na starym layoucie.
 - [ ] PL/EN na nowych tekstach, nie na starej skórce.
+- [ ] Czytelna data i godzina kickoffu na każdym kafelku meczu i podstronie `/markets/[id]` (nigdy puste pole daty).
 - [ ] Po przebudowie sprawdzić w przeglądarce listę, mecz, sezon i telefon.
 
 ---
@@ -133,6 +134,20 @@ Kompletny, ustrukturyzowany plan techniczny i submissionowy do wygrania w hackat
 - [ ] **Developer Starter Kit (`examples/bot/simple-bot.ts`):**
   - Referencyjny, ~40-linijkowy skrypt w TypeScript/Node.js demonstrujący pełny przepływ bota: odpytanie rynku o kursy -> decyzja o stawce -> pobranie tx z API -> lokalne podpisanie i wysłanie na Devnet.
 - [ ] **Dokumentacja API dla Społeczności (`docs/BOT_API.md`):** Zwięzły przewodnik po endpointach z przykładami w `curl` i TypeScript.
+
+---
+
+### 19. 📅 Audyt Danych ze Źródeł API i Naprawa Dat / Kickoffu (TheSportsDB, PandaScore itp.)
+*Cel:* Wyeliminowanie problemu meczów bez widocznej daty na froncie poprzez dokładne sprawdzenie co zwracają zewnętrzne API i uodpornienie parsowania kickoffu.
+- [ ] **Inspekcja i audyt payloadów ze źródeł (`scripts/sources/*`):**
+  - **TheSportsDB:** zbadać formaty `strTimestamp`, `dateEvent` i `strTime` — w wielu meczach brakuje godziny lub strefa czasowa jest niejednoznaczna, przez co `startOf()` potrafi zwracać `null` lub pomijać mecze.
+  - **OpenLigaDB / football-data.org:** upewnić się, że `matchDateTimeUTC` i `utcDate` są poprawnie mapowane na unix timestamp bez przesunięć strefowych.
+  - **PandaScore:** sprawdzić przypadki z pustym `begin_at` przy meczach scheduled (użycie `scheduled_at` lub `original_scheduled_at`).
+- [ ] **Uodpornienie parserów (Fallbacki):**
+  - Gdy brakuje dokładnej godziny, nie odrzucać meczu: fallback do godziny 12:00 UTC danej daty z flagą `timeTBD: true` (np. oznaczenie w UI: *Data potwierdzona, godzina do ustalenia*).
+- [ ] **Naprawa wyświetlania na frontendzie:**
+  - Dodanie daty/godziny meczu na podstronie rynku (`app/src/app/markets/[id]/page.tsx`), gdzie obecnie czas w ogóle się nie renderuje.
+  - W liście meczów (`app/src/app/page.tsx`): nie zastępować daty samym napisem „W grze” — wyświetlać zarówno datę/godzinę, jak i status.
 
 ---
 
