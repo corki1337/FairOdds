@@ -20,7 +20,11 @@ import * as footballData from "../../../../scripts/sources/footballData";
 import * as pandascore from "../../../../scripts/sources/pandascore";
 import * as apiFootball from "../../../../scripts/sources/apiFootball";
 import { UNMARKETABLE_ID_OFFSET } from "../fixtures";
-export async function runKeeper(signer?: ReturnType<typeof loadServerKeypair>) {
+export async function runKeeper(
+  signer?: ReturnType<typeof loadServerKeypair>,
+  maxDurationMs = 15000,
+  maxActions = 3,
+) {
   return withLease("keeper", async () => {
     const keypair = signer ?? loadServerKeypair();
     if (!keypair) throw new Error("Keeper key is not configured");
@@ -106,11 +110,11 @@ export async function runKeeper(signer?: ReturnType<typeof loadServerKeypair>) {
     const rotation = ordered.length
       ? Math.floor(Date.now() / 60000) % ordered.length
       : 0;
-    if (Date.now() - begin < 45000) {
+    if (Date.now() - begin < maxDurationMs) {
       try {
         const seasons = await (program.account as any).seasonMarket.all();
         for (const x of seasons) {
-          if (Date.now() - begin > 45000 || actions.length >= 5) break;
+          if (Date.now() - begin > maxDurationMs || actions.length >= maxActions) break;
           const m = describeSeason(x.publicKey, x.account, program.programId);
           if (m.status !== "open" || Math.floor(Date.now() / 1000) < m.endTime)
             continue;
@@ -147,7 +151,7 @@ export async function runKeeper(signer?: ReturnType<typeof loadServerKeypair>) {
       ...ordered.slice(rotation),
       ...ordered.slice(0, rotation),
     ]) {
-      if (Date.now() - begin > 45000 || actions.length >= 10) break;
+      if (Date.now() - begin > maxDurationMs || actions.length >= maxActions) break;
       try {
         const result = await crankOne(
           program,
@@ -157,10 +161,11 @@ export async function runKeeper(signer?: ReturnType<typeof loadServerKeypair>) {
           guard,
         );
         actions.push({ id: x.account.matchId.toString(), ...result });
-      } catch {
+      } catch (err: any) {
         actions.push({
           id: x.account.matchId.toString(),
           action: "retry_later",
+          error: err?.message || String(err),
         });
       }
     }
