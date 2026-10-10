@@ -18,9 +18,13 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     return NextResponse.json(await runKeeper());
-  } catch {
+  } catch (err: any) {
+    console.error("Keeper run error:", err);
     return NextResponse.json(
-      { error: "Keeper unavailable; check server configuration" },
+      {
+        error: "Keeper unavailable; check server configuration",
+        details: err instanceof Error ? err.message : String(err),
+      },
       { status: 503 },
     );
   }

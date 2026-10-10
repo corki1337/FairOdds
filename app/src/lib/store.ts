@@ -44,10 +44,17 @@ export async function writeStore(key: string, file: string, value: unknown) {
     await redis(["SET", `fairodds:${key}`, JSON.stringify(value)]);
     return;
   }
-  if (process.env.VERCEL)
+  if (process.env.VERCEL) {
+    if (key === "anomalies") {
+      try {
+        await fs.writeFile(path.join("/tmp", `${key}.json`), JSON.stringify(value));
+      } catch {}
+      return;
+    }
     throw new Error(
       "Configure KV_REST_API_URL and KV_REST_API_TOKEN for catalog updates on Vercel",
     );
+  }
   await fs.mkdir(path.dirname(file), { recursive: true });
   const tmp = `${file}.${randomUUID()}.tmp`;
   await fs.writeFile(tmp, JSON.stringify(value));
@@ -62,12 +69,16 @@ export async function withLease<T>(key: string, fn: () => Promise<T>) {
   try {
     return await fn();
   } finally {
-    await redis([
-      "EVAL",
-      "if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end",
-      1,
-      lock,
-      value,
-    ]);
+    try {
+      await redis([
+        "EVAL",
+        "if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end",
+        1,
+        lock,
+        value,
+      ]);
+    } catch (err) {
+      console.error("Keeper lease release failed:", err);
+    }
   }
 }
