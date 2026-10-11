@@ -24,8 +24,10 @@ import {
   pandaScoreDiffJobs,
   scoreDiffJobs,
   jobsForMatch,
+  jobCandidatesForMatch,
   feedHashOf,
 } from "../../app/src/lib/switchboard";
+import { UNMARKETABLE_ID_OFFSET } from "../../app/src/lib/fixtures";
 import { OracleJob } from "@switchboard-xyz/common";
 const manifest: SeasonManifest = {
   id: "1",
@@ -196,6 +198,13 @@ describe("match oracle finality", () => {
     );
     expect(
       feedHashOf(jobsForMatch("1", feedHashOf(jobs))).equals(feedHashOf(jobs)),
+    ).to.equal(true);
+    const esportId = (BigInt(UNMARKETABLE_ID_OFFSET) + 1n).toString();
+    const legacyEsport = jobCandidatesForMatch(esportId)[1];
+    expect(
+      feedHashOf(
+        jobsForMatch(esportId, feedHashOf(legacyEsport)),
+      ).equals(feedHashOf(legacyEsport)),
     ).to.equal(true);
     expect(() => jobsForMatch("1", Buffer.alloc(32))).to.throw();
   });

@@ -49,11 +49,30 @@ export async function crankOne(
   }
   const blocked = await guard?.(m);
   if (blocked) return { action: "held", reason: blocked };
-  return {
-    action: "resolved",
-    signature: await resolveWithOracle(program, connection, wallet, {
-      publicKey: market,
-      account: m,
-    }),
-  };
+  try {
+    return {
+      action: "resolved",
+      signature: await resolveWithOracle(program, connection, wallet, {
+        publicKey: market,
+        account: m,
+      }),
+    };
+  } catch (err: any) {
+    const msg = err?.message || String(err);
+    if (msg.includes("No gateways available")) {
+      return {
+        action: "oracle_unavailable",
+        reason:
+          "Switchboard devnet gateways offline - awaiting resolve deadline to cancel and refund",
+      };
+    }
+    if (msg.includes("Unsupported pinned match feed")) {
+      return {
+        action: "feed_hash_mismatch",
+        reason:
+          "Market pinned to older feed jobs - awaiting resolve deadline to cancel and refund",
+      };
+    }
+    throw err;
+  }
 }

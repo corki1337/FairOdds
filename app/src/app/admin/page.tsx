@@ -8,7 +8,12 @@ import { globalPda } from "@/lib/anchor";
 import { createMarketTx } from "@/lib/cranks";
 import { createSeasonTx } from "@/lib/seasons";
 import { getJson } from "@/lib/client";
-import type { Fixture } from "@/lib/fixtures";
+import {
+  CATEGORY_TABS,
+  getCategoryMeta,
+  type CategoryTabId,
+  type Fixture,
+} from "@/lib/fixtures";
 import type { SeasonManifest } from "@/lib/season-jobs";
 export default function Admin() {
   const { t, language } = useLanguage(),
@@ -17,6 +22,7 @@ export default function Admin() {
     program = useAichainProgram(),
     qc = useQueryClient();
   const [kind, setKind] = useState("match"),
+    [adminCategory, setAdminCategory] = useState<CategoryTabId>("all"),
     [selected, setSelected] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -110,6 +116,26 @@ export default function Admin() {
               {t("Season", "Sezon")}
             </button>
           </div>
+          {kind === "match" && (
+            <div className="category-bar admin-cat-bar" role="tablist">
+              {CATEGORY_TABS.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className={`category-tab small ${adminCategory === cat.id ? "selected" : ""}`}
+                  onClick={() => {
+                    setAdminCategory(cat.id);
+                    setSelected("");
+                  }}
+                >
+                  <span className="cat-icon">{cat.icon}</span>
+                  <span>
+                    {language === "pl" ? cat.shortLabel : cat.labelEn}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
           <label>
             {t("Event", "Wydarzenie")}
             <select
@@ -119,13 +145,25 @@ export default function Admin() {
               <option value="">{t("Select…", "Wybierz…")}</option>
               {kind === "match"
                 ? fixtures.data?.fixtures
-                    .filter((f) => f.marketable && !f.timeTBD)
-                    .map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.teamA} vs {f.teamB} ·{" "}
-                        {new Date(f.startTime * 1000).toLocaleString(language)}
-                      </option>
-                    ))
+                    .filter(
+                      (f) =>
+                        f.marketable &&
+                        !f.timeTBD &&
+                        (adminCategory === "all" ||
+                          f.category === adminCategory),
+                    )
+                    .map((f) => {
+                      const meta = getCategoryMeta(f.category);
+                      return (
+                        <option key={f.id} value={f.id}>
+                          [{meta.shortLabel}] {f.teamA} vs {f.teamB} ({f.league})
+                          ·{" "}
+                          {new Date(f.startTime * 1000).toLocaleString(
+                            language,
+                          )}
+                        </option>
+                      );
+                    })
                 : seasons.data?.manifests.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.title}

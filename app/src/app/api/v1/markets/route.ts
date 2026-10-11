@@ -34,10 +34,14 @@ export async function GET(req: NextRequest) {
           (!status || Object.keys(x.account.status)[0] === status),
       )
       .sort((a: any, b: any) => a.account.matchId.cmp(b.account.matchId));
-    const markets = await describeMatches(
+    const categoryParam = req.nextUrl.searchParams.get("category");
+    let markets = await describeMatches(
       rows.slice(offset, offset + take),
       program,
     );
+    if (categoryParam && categoryParam !== "all") {
+      markets = markets.filter((m) => m.category === categoryParam);
+    }
     return json({
       markets,
       total: rows.length,

@@ -24,6 +24,8 @@ import {
   statusKey,
 } from "../anchor";
 import { formatUSDC, parseUSDC, poolOdds } from "../money";
+import { loadCatalog } from "../catalog";
+import { inferCategory, type Fixture } from "../fixtures";
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -68,6 +70,7 @@ export async function describeMatch(
   m: any,
   program: Program,
   rules?: { policy: any; second: any },
+  fixture?: Fixture | null,
 ) {
   if (!rules) {
     const keys = [
@@ -97,13 +100,29 @@ export async function describeMatch(
   const { policy, second } = rules;
   const a = BigInt(m.poolTeamA.toString()),
     b = BigInt(m.poolTeamB.toString());
+  const teams = [decodeTeamName(m.teamA), decodeTeamName(m.teamB)];
+
+  let fix = fixture;
+  if (fix === undefined) {
+    try {
+      const catalog = await loadCatalog();
+      fix =
+        catalog.fixtures.find((f) => String(f.id) === m.matchId.toString()) ??
+        null;
+    } catch {
+      fix = null;
+    }
+  }
+
+  const category = fix?.category ?? inferCategory(teams, fix?.league);
+
   return {
     id: m.matchId.toString(),
     type: "match",
     address: market.toBase58(),
     mint: m.usdcMint.toBase58(),
     status: statusKey(m.status),
-    teams: [decodeTeamName(m.teamA), decodeTeamName(m.teamB)],
+    teams,
     pools: [formatUSDC(a), formatUSDC(b)],
     poolUnits: [a.toString(), b.toString()],
     odds: poolOdds(a, b),
@@ -126,6 +145,9 @@ export async function describeMatch(
       secondary: second?.feed.toBase58() ?? null,
       hash: Buffer.from(m.feedHash).toString("hex"),
     },
+    category,
+    league: fix?.league ?? null,
+    format: fix?.format ?? null,
   };
 }
 export async function buildMatchBet(
@@ -227,12 +249,26 @@ export async function describeMatches(
       throw new ApiError(503, "INVALID_ACCOUNT", "Invalid market rule account");
     return program.coder.accounts.decode(name, a.data);
   };
+  const catalogMap = new Map<string, Fixture>();
+  try {
+    const catalog = await loadCatalog();
+    for (const f of catalog.fixtures) {
+      catalogMap.set(String(f.id), f);
+    }
+  } catch {}
+
   return Promise.all(
     rows.map((x, i) =>
-      describeMatch(x.publicKey, x.account, program, {
-        policy: decode(i * 2, "marketPolicy"),
-        second: decode(i * 2 + 1, "secondaryOracle"),
-      }),
+      describeMatch(
+        x.publicKey,
+        x.account,
+        program,
+        {
+          policy: decode(i * 2, "marketPolicy"),
+          second: decode(i * 2 + 1, "secondaryOracle"),
+        },
+        catalogMap.get(x.account.matchId.toString()) ?? null,
+      ),
     ),
   );
 }

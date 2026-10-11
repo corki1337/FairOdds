@@ -63,6 +63,106 @@ export const CATEGORY_LABELS: Record<FixtureCategoryId, string> = {
   esports: "Esports",
 };
 
+export type CategoryTabId = FixtureCategoryId | "all";
+
+export type CategoryMeta = {
+  id: CategoryTabId;
+  labelEn: string;
+  labelPl: string;
+  shortLabel: string;
+  icon: string;
+};
+
+export const CATEGORY_TABS: CategoryMeta[] = [
+  {
+    id: "all",
+    labelEn: "All",
+    labelPl: "Wszystkie",
+    shortLabel: "Wszystkie",
+    icon: "🌟",
+  },
+  {
+    id: "football",
+    labelEn: "Football",
+    labelPl: "Piłka nożna",
+    shortLabel: "Piłka",
+    icon: "⚽",
+  },
+  {
+    id: "esports_cs2",
+    labelEn: "Counter-Strike 2",
+    labelPl: "Counter-Strike 2",
+    shortLabel: "CS2",
+    icon: "🎯",
+  },
+  {
+    id: "esports_lol",
+    labelEn: "League of Legends",
+    labelPl: "League of Legends",
+    shortLabel: "LoL",
+    icon: "⚔️",
+  },
+  {
+    id: "esports",
+    labelEn: "Other Esports",
+    labelPl: "Inne e-sporty",
+    shortLabel: "E-sport",
+    icon: "🎮",
+  },
+];
+
+export function getCategoryMeta(categoryId?: string | null): CategoryMeta {
+  return (
+    CATEGORY_TABS.find((c) => c.id === categoryId) ?? {
+      id: "football",
+      labelEn: "Football",
+      labelPl: "Piłka nożna",
+      shortLabel: "Piłka",
+      icon: "⚽",
+    }
+  );
+}
+
+export function inferCategory(
+  teams?: string[],
+  league?: string | null,
+): FixtureCategoryId {
+  const text = `${teams?.join(" ") ?? ""} ${league ?? ""}`.toLowerCase();
+  if (
+    text.includes("cs2") ||
+    text.includes("csgo") ||
+    text.includes("counter-strike") ||
+    text.includes("frag university") ||
+    text.includes("blast") ||
+    text.includes("major") ||
+    text.includes("iem") ||
+    text.includes("esl")
+  ) {
+    return "esports_cs2";
+  }
+  if (
+    text.includes("league of legends") ||
+    text.includes("lol") ||
+    text.includes("lec") ||
+    text.includes("lck") ||
+    text.includes("lcs") ||
+    text.includes("lpl") ||
+    text.includes("worlds")
+  ) {
+    return "esports_lol";
+  }
+  if (
+    text.includes("dota") ||
+    text.includes("valorant") ||
+    text.includes("overwatch") ||
+    text.includes("starcraft") ||
+    text.includes("esport")
+  ) {
+    return "esports";
+  }
+  return "football";
+}
+
 export const CATEGORIES: FixtureCategory[] = (
   Object.keys(CATEGORY_LABELS) as FixtureCategoryId[]
 ).map((id) => ({ id, label: CATEGORY_LABELS[id] }));

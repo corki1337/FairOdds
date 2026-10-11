@@ -50,8 +50,12 @@ async function main() {
     };
   });
   const now = Math.floor(Date.now() / 1000);
-  const cutoff = demo ? now + 600 : Number(process.env.SEASON_CUTOFF),
-    endTime = demo ? now + 900 : Number(process.env.SEASON_END_TIME);
+  const cutoff = demo
+    ? now + 600
+    : Number(process.env.SEASON_CUTOFF || now + 14 * 86400),
+    endTime = demo
+      ? now + 900
+      : Number(process.env.SEASON_END_TIME || now + 14 * 86400 + 3600);
   const manifest: SeasonManifest = {
     id: String(year * 100 + kind),
     title: `Bundesliga ${year}/${String(year + 1).slice(-2)}${demo ? " demo" : ""}`,
