@@ -29,6 +29,12 @@ export function Nav() {
           >
             {t("Season markets", "Rynki sezonowe")}
           </Link>
+          <Link
+            className={path === "/blinks" ? "active" : ""}
+            href="/blinks"
+          >
+            Blinks
+          </Link>
           <Link href="/admin">{t("Create", "Utwórz")}</Link>
         </nav>
         <div className="nav-actions">
