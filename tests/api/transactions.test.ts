@@ -132,6 +132,49 @@ describe("unsigned bet builder", () => {
       expect((e as ApiError).code).to.equal("RECEIPT_CONFLICT");
     }
   });
+  it("prepends the faucet only for an unfunded wallet whose daily tap is available", async () => {
+    const ctx = reader(),
+      user = Keypair.generate().publicKey,
+      mint = Keypair.generate().publicKey;
+    (ctx.program.account as any).marketState.fetchNullable = async () => ({
+      status: { open: {} },
+      startTime: new BN(Math.floor(Date.now() / 1000) + 1000),
+      usdcMint: mint,
+    });
+    (ctx.program.account as any).userBetReceipt.fetchNullable = async () =>
+      null;
+    ctx.connection.getLatestBlockhash = async () => ({
+      blockhash: PublicKey.default.toBase58(),
+      lastValidBlockHeight: 100,
+    });
+    let balance = "0";
+    let lastClaim: number | null = null;
+    (ctx.connection as any).getTokenAccountBalance = async () => ({
+      value: { amount: balance },
+    });
+    (ctx.program.account as any).faucetReceipt.fetchNullable = async () =>
+      lastClaim === null ? null : { lastClaim: new BN(lastClaim) };
+    const names = async () => {
+      const out = await buildMatchBet("10", user.toBase58(), 0, "10", ctx, {
+        autoFaucet: true,
+      });
+      const tx = Transaction.from(Buffer.from(out.transaction, "base64"));
+      return tx.instructions
+        .filter((ix) => ix.programId.equals(ctx.program.programId))
+        .map(
+          (ix) =>
+            (ctx.program.coder.instruction as BorshInstructionCoder).decode(
+              ix.data,
+            )!.name,
+        );
+    };
+    expect(await names()).to.deep.equal(["faucetMint", "placeBet"]);
+    lastClaim = Math.floor(Date.now() / 1000) - 60;
+    expect(await names()).to.deep.equal(["placeBet"]);
+    lastClaim = null;
+    balance = "10000000";
+    expect(await names()).to.deep.equal(["placeBet"]);
+  });
 });
 describe("season jobs", () => {
   it("gates on completed team-games before translating provider ids", () => {

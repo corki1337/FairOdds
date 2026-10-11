@@ -38,3 +38,10 @@ validator.err
 .env.*
 !.env.example
 !app/.env.example
+
+# local video production intermediates
+presentation/video/frames/
+presentation/video/norm*/
+presentation/video/*.mp4
+presentation/video/concat*.txt
+app/public/video/

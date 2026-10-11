@@ -11,6 +11,7 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { useLanguage } from "./Language";
+import { SharePick } from "./SharePick";
 import { useAichainProgram } from "@/lib/hooks/useProgram";
 import { getJson, preparedBet } from "@/lib/client";
 import {
@@ -22,7 +23,7 @@ import {
 } from "@/lib/anchor";
 import { seasonReceiptPda, settleSeasonTx } from "@/lib/seasons";
 import { sendV0, resolveWithOracle, cancelExpired, lockIx } from "@/lib/cranks";
-import { parseUSDC, formatUSDC, quote } from "@/lib/money";
+import { parseUSDC, displayUSDC, quote } from "@/lib/money";
 import { getCategoryMeta } from "@/lib/fixtures";
 import type { MatchView, SeasonView } from "@/lib/views";
 export function MarketDetail({ season = false }: { season?: boolean }) {
@@ -67,6 +68,21 @@ export function MarketDetail({ season = false }: { season?: boolean }) {
     enabled: !!program && !!wallet.publicKey && !!q.data,
     refetchInterval: 15000,
   });
+  const solQ = useQuery({
+    queryKey: ["sol", wallet.publicKey?.toBase58()],
+    queryFn: () => connection.getBalance(wallet.publicKey!, "confirmed"),
+    enabled: !!wallet.publicKey,
+    refetchInterval: 30000,
+  });
+  const [invited, setInvited] = useState(false);
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("side");
+    const s = Number(raw);
+    if (raw !== null && Number.isInteger(s) && s >= 0 && s < 32) {
+      setSide(s);
+      setInvited(true);
+    }
+  }, []);
   if (q.isPending)
     return (
       <p className="notice">{t("Loading market…", "Wczytywanie rynku…")}</p>
@@ -93,7 +109,9 @@ export function MarketDetail({ season = false }: { season?: boolean }) {
     ? season
       ? receipt.selected
       : receipt.teamSelected
-    : side;
+    : side < teams.length
+      ? side
+      : 0;
   const stake = receipt
     ? BigInt((season ? receipt.amount : receipt.amountStaked).toString())
     : 0n;
@@ -132,7 +150,12 @@ export function MarketDetail({ season = false }: { season?: boolean }) {
           connection,
           wallet,
           `/api/v1/${endpoint}/${id}/bet`,
-          { wallet: wallet.publicKey.toBase58(), side: activeSide, amount },
+          {
+            wallet: wallet.publicKey.toBase58(),
+            side: activeSide,
+            amount,
+            autoFaucet: true,
+          },
         );
       else if (kind === "settle") {
         if (season)
@@ -375,7 +398,7 @@ export function MarketDetail({ season = false }: { season?: boolean }) {
           <div className="panel">
             <p className="eyebrow">{t("THE SHARED POOL", "WSPÓLNA PULA")}</p>
             <h2>
-              {formatUSDC(total)} <small>demo-USDC</small>
+              {displayUSDC(total)} <small>demo-USDC</small>
             </h2>
             {season ? (
               <table className="participant-table">
@@ -477,6 +500,25 @@ export function MarketDetail({ season = false }: { season?: boolean }) {
         </section>
         <aside className="panel">
           <h2>{t("Your position", "Twój zakład")}</h2>
+          {invited && !receipt && !closed && (
+            <p className="notice invite-banner">
+              {t(
+                `A friend challenged you. ${teams[activeSide]} is selected; change it if you disagree.`,
+                `Znajomy rzucił Ci wyzwanie. Zaznaczono ${teams[activeSide]}; zmień, jeśli myślisz inaczej.`,
+              )}
+            </p>
+          )}
+          {wallet.publicKey && solQ.data !== undefined && solQ.data < 5_000_000 && (
+            <p className="notice">
+              {t(
+                "This wallet needs a little devnet SOL for network fees (about 0.005 SOL). Demo-USDC is added automatically with your first bet.",
+                "Ten portfel potrzebuje trochę devnet SOL na opłaty sieciowe (ok. 0,005 SOL). Demo-USDC dodamy automatycznie przy pierwszym zakładzie.",
+              )}{" "}
+              <a href="https://faucet.solana.com" target="_blank" rel="noreferrer">
+                faucet.solana.com ↗
+              </a>
+            </p>
+          )}
           {!wallet.publicKey && (
             <p className="notice">
               {t(
@@ -557,7 +599,7 @@ export function MarketDetail({ season = false }: { season?: boolean }) {
                     <span>
                       {t("Estimated net payout", "Szacowana wypłata netto")}
                     </span>
-                    {formatUSDC(projection.net)} USDC
+                    {displayUSDC(projection.net)} USDC
                   </div>
                   <small>
                     {t(
@@ -586,7 +628,7 @@ export function MarketDetail({ season = false }: { season?: boolean }) {
           )}
           {receipt && (
             <p className="notice">
-              {t("Your stake", "Twoja stawka")}: {formatUSDC(stake)} USDC ·{" "}
+              {t("Your stake", "Twoja stawka")}: {displayUSDC(stake)} USDC ·{" "}
               {teams[activeSide]}
             </p>
           )}
@@ -656,6 +698,14 @@ export function MarketDetail({ season = false }: { season?: boolean }) {
                   "Jeden portfel, jedna strona. Możesz dokładać do tej samej strony. Remis oznacza zwrot stawek.",
                 )}
           </p>
+          {!closed && (
+            <SharePick
+              path={`/${season ? "seasons" : "markets"}/${id}`}
+              title={season ? ss.title : `${teams[0]} vs ${teams[1]}`}
+              pickedTeam={receipt ? teams[activeSide] : null}
+              inviteSide={season || !receipt ? null : 1 - activeSide}
+            />
+          )}
         </aside>
       </div>
     </>

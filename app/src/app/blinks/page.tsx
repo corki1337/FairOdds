@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
@@ -40,7 +40,8 @@ export default function BlinksInspector() {
   const { connection } = useConnection();
   const wallet = useWallet();
 
-  const [selectedId, setSelectedId] = useState("2482198");
+  const [selectedId, setSelectedId] = useState("");
+  const [copied, setCopied] = useState(false);
   const [customUrl, setCustomUrl] = useState("");
   const [useCustom, setUseCustom] = useState(false);
   const [amount, setAmount] = useState("10");
@@ -50,12 +51,28 @@ export default function BlinksInspector() {
 
   const marketsQuery = useQuery({
     queryKey: ["markets-for-blinks"],
-    queryFn: () => getJson<{ markets: MatchView[] }>("/api/v1/markets"),
+    queryFn: () =>
+      getJson<{ markets: MatchView[] }>("/api/v1/markets?status=open&limit=100"),
   });
+
+  const openMarkets = (marketsQuery.data?.markets || []).filter(
+    (m) => m.status === "open"
+  );
+
+  useEffect(() => {
+    if (selectedId) return;
+    const fromLink = new URLSearchParams(window.location.search).get("market");
+    if (fromLink) setSelectedId(fromLink);
+    else if (openMarkets[0]) setSelectedId(openMarkets[0].id);
+  }, [selectedId, openMarkets]);
 
   const activeUrl = useCustom
     ? customUrl
-    : `/api/actions/market/${selectedId}`;
+    : selectedId
+      ? `/api/actions/market/${selectedId}`
+      : "";
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  const actionUrl = activeUrl.startsWith("http") ? activeUrl : origin + activeUrl;
 
   const actionQuery = useQuery({
     queryKey: ["blink-action", activeUrl],
@@ -125,21 +142,29 @@ export default function BlinksInspector() {
     }
   }
 
-  const openMarkets = (marketsQuery.data?.markets || []).filter(
-    (m) => m.status === "open"
-  );
-
   const payload = actionQuery.data;
+
+  async function copyActionUrl() {
+    await navigator.clipboard.writeText(`solana-action:${actionUrl}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   return (
     <div style={{ maxWidth: 800, margin: "0 auto" }}>
       <div className="detail-header">
         <p className="eyebrow">{t("SOLANA ACTIONS & BLINKS", "SOLANA ACTIONS I BLINKS")}</p>
-        <h1>{t("Blinks Tester & Preview", "Tester i Podgląd Blinków")}</h1>
+        <h1>{t("Bet from a link", "Zakład z linku")}</h1>
         <p className="hero-copy">
           {t(
-            "Official Solana Blinks interactive inspector. Test metadata, CORS, parameter inputs, and real Devnet transaction signing.",
-            "Oficjalny interaktywny inspektor Solana Blinks. Testuj metadane, CORS, parametry wejściowe i prawdziwe podpisywanie transakcji na Devnecie."
+            "Every FairOdds match is a Solana Action: one URL returns the card, the buttons and an unsigned transaction. This page renders it exactly like a Blink client would, and you sign on devnet with your own wallet. First-time wallets get demo-USDC in the same transaction.",
+            "Każdy mecz FairOdds to Solana Action: jeden URL zwraca kartę, przyciski i niepodpisaną transakcję. Ta strona renderuje ją tak jak klient Blinków, a Ty podpisujesz na devnecie własnym portfelem. Nowe portfele dostają demo-USDC w tej samej transakcji."
+          )}
+        </p>
+        <p className="muted" style={{ fontSize: 13 }}>
+          {t(
+            "Dialect's hosted renderer (dial.to) is currently offline, and unfurling on X needs a registered mainnet Action plus a wallet extension. On devnet, this built-in renderer is the way to try it.",
+            "Hostowany renderer Dialecta (dial.to) jest obecnie wyłączony, a rozwijanie na X wymaga zarejestrowanej akcji mainnet i rozszerzenia portfela. Na devnecie Blinka testujesz tym wbudowanym rendererem."
           )}
         </p>
       </div>
@@ -171,6 +196,17 @@ export default function BlinksInspector() {
           </label>
         </div>
 
+        {actionUrl && (
+          <div style={{ display: "flex", gap: 10, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <code style={{ fontSize: 12, wordBreak: "break-all", flex: 1 }}>
+              solana-action:{actionUrl}
+            </code>
+            <button type="button" className="secondary" onClick={copyActionUrl}>
+              {copied ? t("Copied", "Skopiowano") : t("Copy Action URL", "Kopiuj Action URL")}
+            </button>
+          </div>
+        )}
+
         {useCustom && (
           <div style={{ marginTop: 12 }}>
             <label>
@@ -191,7 +227,7 @@ export default function BlinksInspector() {
         {/* Rendered Blink Card simulating Dialect / Phantom / X */}
         <div>
           <h3 style={{ marginBottom: 12 }}>
-            {t("Blink Card (Live Dialect Preview)", "Karta Blinka (Podgląd na żywo)")}
+            {t("Blink card", "Karta Blinka")}
           </h3>
 
           {actionQuery.isLoading && (
@@ -231,7 +267,7 @@ export default function BlinksInspector() {
                   ⚡ Solana Blink
                 </span>
                 <span style={{ fontSize: 12, color: "var(--mute, #888)" }}>
-                  fairodds1338.vercel.app
+                  {origin.replace(/^https?:\/\//, "")}
                 </span>
               </div>
 
@@ -340,11 +376,11 @@ export default function BlinksInspector() {
 
         {/* Spec Details Inspector */}
         <div className="panel" style={{ padding: 20 }}>
-          <h3 style={{ marginTop: 0 }}>{t("Solana Actions JSON Spec", "Specyfikacja JSON Akcji")}</h3>
+          <h3 style={{ marginTop: 0 }}>{t("Raw Action response", "Surowa odpowiedź Akcji")}</h3>
           <p style={{ fontSize: 13, color: "var(--mute)" }}>
             {t(
-              "Verified endpoints for dial.to, Phantom, and X/Twitter unfurlers:",
-              "Zweryfikowane endpointy dla dial.to, Phantom i X/Twitter:"
+              "GET response with CORS and x-action-version headers, as any Actions client receives it:",
+              "Odpowiedź GET z nagłówkami CORS i x-action-version, tak jak widzi ją każdy klient Actions:"
             )}
           </p>
           <pre

@@ -3,7 +3,14 @@
 
 **Sports markets with shared pools on Solana devnet.** Bettors choose a side, sign with their own wallet and claim from program-owned vaults. Pool ratios determine indicative odds; Switchboard On-Demand supplies pinned sports results.
 
-[Polski](README.pl.md) · [Deployment](docs/DEPLOYMENT.md) · [Bot API](docs/BOT_API.md) · [Season markets](docs/SEASON_MARKETS.md) · [Verification status](docs/STATUS.md)
+[Live demo](https://fairodds1338.vercel.app) · [Pitch](docs/PITCH.md) · [Polski](README.pl.md) · [Deployment](docs/DEPLOYMENT.md) · [Bot API](docs/BOT_API.md) · [Season markets](docs/SEASON_MARKETS.md) · [Verification status](docs/STATUS.md)
+
+## Try it in one minute
+
+1. Install Phantom, switch it to **devnet** and get a little devnet SOL for fees from [faucet.solana.com](https://faucet.solana.com).
+2. Open an upcoming match, pick a side and stake. If the wallet has no demo-USDC, the daily faucet is added to the same transaction.
+3. Share the challenge link with friends. It opens the match with the other side selected, so everyone plays into the same pool.
+4. After the final whistle, the Switchboard result settles the market and winners claim from the program vault.
 
 ## Economics
 
@@ -48,7 +55,9 @@ Public `/api/v1/markets` and `/api/v1/seasons` expose exact pool units, deadline
 
 ## Release state
 
-Local SBF tests cover legacy settlement, fees, one-sided refunds, seasons and reserve authorization. TypeScript, source tests and production build are checked; details and browser evidence are in [STATUS](docs/STATUS.md). The new programs **must be upgraded** before using this release against the existing devnet. Upgrade both programs, configure hosting/Redis/keeper, prepare season manifests and run a wallet smoke test following [DEPLOYMENT](docs/DEPLOYMENT.md).
+Both programs are upgraded on devnet and the app is live at **[fairodds1338.vercel.app](https://fairodds1338.vercel.app)**. Local SBF tests cover legacy settlement, fees, one-sided refunds, seasons and reserve authorization. TypeScript, API/source tests and the production build run in CI; details are in [STATUS](docs/STATUS.md). Both season markets are labeled historical demos with a known result.
+
+Dialect's hosted `dial.to` renderer is currently offline (503), and X only unfurls registered mainnet Actions. On devnet, open `/blinks?market={id}` to render and sign the same Action.
 
 Existing addresses: [aichain](https://explorer.solana.com/address/4FNHp1MjhJTqZZqQq333qrDBduT9orpF4zMTdXXUT1dg?cluster=devnet), [yield_park](https://explorer.solana.com/address/6XUoUhwMgdurDYu47VKEpqAKczbkY36H22xHr9o9DNHS?cluster=devnet). The prior Sevilla–Barcelona smoke test is recorded on [this legacy market](https://explorer.solana.com/address/CX6iYKDwPKMWyqqZs7ToVMMDxyhgXjAUHq6exzCjYYGq?cluster=devnet); it is not proof that the new release has been deployed.
 
