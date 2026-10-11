@@ -7,6 +7,7 @@ import {
   AccountInfo,
 } from "@solana/web3.js";
 import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountIdempotentInstruction,
   getAssociatedTokenAddressSync,
   TOKEN_PROGRAM_ID,
@@ -22,6 +23,9 @@ import {
   secondaryOraclePda,
   decodeTeamName,
   statusKey,
+  globalPda,
+  mintAuthorityPda,
+  faucetReceiptPda,
 } from "../anchor";
 import { formatUSDC, parseUSDC, poolOdds } from "../money";
 import { loadCatalog } from "../catalog";
@@ -150,12 +154,60 @@ export async function describeMatch(
     format: fix?.format ?? null,
   };
 }
+const FAUCET_AMOUNT = 1_000_000_000n;
+const FAUCET_COOLDOWN = 24 * 60 * 60;
+
+/**
+ * Daily demo-USDC tap to prepend when the wallet cannot cover the stake, so a
+ * first-time user signs one transaction instead of two. Empty when not needed
+ * or still on cooldown (the program would reject it).
+ */
+export async function faucetTopUp(
+  program: Program,
+  user: PublicKey,
+  mint: PublicKey,
+  units: bigint,
+): Promise<TransactionInstruction[]> {
+  const connection = program.provider.connection;
+  const userAta = getAssociatedTokenAddressSync(mint, user);
+  const [receipt] = faucetReceiptPda(program.programId, user);
+  const [balance, tap] = await Promise.all([
+    connection
+      .getTokenAccountBalance(userAta, "confirmed")
+      .then((r) => BigInt(r.value.amount))
+      .catch(() => 0n),
+    (program.account as any).faucetReceipt.fetchNullable(receipt),
+  ]);
+  if (balance >= units || balance + FAUCET_AMOUNT < units) return [];
+  if (
+    tap &&
+    Math.floor(Date.now() / 1000) - tap.lastClaim.toNumber() < FAUCET_COOLDOWN
+  )
+    return [];
+  return [
+    await program.methods
+      .faucetMint()
+      .accounts({
+        user,
+        global: globalPda(program.programId)[0],
+        usdcMint: mint,
+        mintAuthority: mintAuthorityPda(program.programId)[0],
+        receipt,
+        userAta,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      })
+      .instruction(),
+  ];
+}
 export async function buildMatchBet(
   id: string,
   walletValue: unknown,
   side: unknown,
   amount: unknown,
   ctx = reader(),
+  opts: { autoFaucet?: boolean } = {},
 ) {
   if (side !== 0 && side !== 1)
     throw new ApiError(400, "INVALID_SIDE", "Side must be 0 or 1");
@@ -205,8 +257,12 @@ export async function buildMatchBet(
       tokenProgram: TOKEN_PROGRAM_ID,
     })
     .instruction();
+  const topUp = opts.autoFaucet
+    ? await faucetTopUp(program, user, m.usdcMint, units)
+    : [];
   const latest = await connection.getLatestBlockhash("confirmed");
   const tx = new Transaction({ feePayer: user, ...latest }).add(
+    ...topUp,
     createAssociatedTokenAccountIdempotentInstruction(
       user,
       userAta,
@@ -222,6 +278,7 @@ export async function buildMatchBet(
     blockhash: latest.blockhash,
     lastValidBlockHeight: latest.lastValidBlockHeight,
     cluster: "devnet",
+    faucet: topUp.length > 0,
     message: "Stake demo-USDC on FairOdds. Sign locally.",
   };
 }
@@ -280,8 +337,9 @@ export async function buildMatchActionBet(
   side: unknown,
   amount: unknown,
   ctx = reader(),
+  opts: { autoFaucet?: boolean } = {},
 ) {
-  const prepared = await buildMatchBet(id, wallet, side, amount, ctx);
+  const prepared = await buildMatchBet(id, wallet, side, amount, ctx, opts);
   const tx = Transaction.from(Buffer.from(prepared.transaction, "base64"));
   tx.add(
     new TransactionInstruction({

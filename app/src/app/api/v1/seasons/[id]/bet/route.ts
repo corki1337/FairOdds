@@ -7,7 +7,11 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     await limit(req);
     const { id } = await ctx.params,
       b = await body(req);
-    return json(await buildSeasonBet(id, b.wallet, b.side, b.amount));
+    return json(
+      await buildSeasonBet(id, b.wallet, b.side, b.amount, undefined, {
+        autoFaucet: b.autoFaucet === true,
+      }),
+    );
   } catch (e) {
     return failure(e);
   }

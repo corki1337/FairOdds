@@ -5,7 +5,7 @@ import {
   getAssociatedTokenAddressSync,
   createAssociatedTokenAccountIdempotentInstruction,
 } from "@solana/spl-token";
-import { reader, parseId, ApiError } from "./markets";
+import { reader, parseId, ApiError, faucetTopUp } from "./markets";
 import { seasonPda, seasonReceiptPda } from "../seasons";
 import {
   decodeTeamName,
@@ -18,6 +18,14 @@ import {
 } from "../anchor";
 import { formatUSDC, parseUSDC } from "../money";
 import { YIELD_PARK_PROGRAM_ID } from "../ids";
+import bundledManifests from "../../data/seasons.json";
+
+// Seasons created before their manifest was flagged keep historicalDemo=false on-chain.
+const DEMO_SEASON_IDS = new Set(
+  (bundledManifests as { id: string; historicalDemo: boolean }[])
+    .filter((s) => s.historicalDemo)
+    .map((s) => s.id),
+);
 export async function season(id: string, ctx = reader()) {
   const market = seasonPda(ctx.program.programId, parseId(id))[0];
   const m = await (ctx.program.account as any).seasonMarket.fetchNullable(
@@ -35,7 +43,8 @@ export function describeSeason(market: PublicKey, m: any, pid: PublicKey) {
     mint: m.usdcMint.toBase58(),
     title: decodeTeamName(m.title),
     kind: m.kind,
-    historicalDemo: m.historicalDemo,
+    historicalDemo:
+      m.historicalDemo || DEMO_SEASON_IDS.has(m.id.toString()),
     status: statusKey(m.status),
     cutoff: m.cutoff.toNumber(),
     endTime: m.endTime.toNumber(),
@@ -64,6 +73,7 @@ export async function buildSeasonBet(
   side: unknown,
   amount: unknown,
   ctx = reader(),
+  opts: { autoFaucet?: boolean } = {},
 ) {
   let user: PublicKey, units: bigint;
   try {
@@ -122,8 +132,12 @@ export async function buildSeasonBet(
       systemProgram: SystemProgram.programId,
     })
     .instruction();
+  const topUp = opts.autoFaucet
+    ? await faucetTopUp(program, user, m.usdcMint, units)
+    : [];
   const latest = await connection.getLatestBlockhash("confirmed");
   const tx = new Transaction({ feePayer: user, ...latest }).add(
+    ...topUp,
     createAssociatedTokenAccountIdempotentInstruction(
       user,
       userAta,
@@ -138,5 +152,6 @@ export async function buildSeasonBet(
       .toString("base64"),
     ...latest,
     cluster: "devnet",
+    faucet: topUp.length > 0,
   };
 }

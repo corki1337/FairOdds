@@ -197,6 +197,32 @@ button.primary {
   background: var(--panel);
   color: inherit;
 }
+.share-pick {
+  margin-top: 25px;
+  padding-top: 20px;
+  border-top: 1px solid var(--stroke);
+}
+.share-pick .muted {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.share-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.share-buttons > * {
+  flex: 1 1 90px;
+  padding: 10px 12px;
+  font-size: 13px;
+  text-align: center;
+  text-decoration: none;
+}
+.invite-banner {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 .hero-aside {
   padding: 34px;
   background: var(--panel);

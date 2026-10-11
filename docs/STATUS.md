@@ -1,6 +1,19 @@
 # FairOdds - stan implementacji
 
-Aktualizacja: **2026-10-10**. Gałąź implementacji: `codex/implementation`. Plan zatwierdzony przez użytkownika, kod i materiały przygotowane; nowe binaria nie zostały przez tę sesję wdrożone na devnet.
+Aktualizacja: **2026-10-11**. Oba programy zaktualizowane na devnecie (ostatni deploy `aichain` 2026-10-10 22:04 UTC). Publiczne demo: [fairodds1338.vercel.app](https://fairodds1338.vercel.app), wdrażane automatycznie z `main`. CI na `main` zielone.
+
+Stan on-chain 2026-10-11: 20 rynków meczów (4 otwarte, 3 rozliczone przez wyrocznię, 4 zwroty), 2 rynki sezonowe oznaczone jako historyczne demo, 86 kuponów z 21 portfeli, w większości testowych portfeli zespołu.
+
+Zmiany 2026-10-11:
+
+- Sezon „Bundesliga 2024/25” miał on-chain `historicalDemo=false` mimo znanego wyniku. Manifest i API oznaczają go teraz jako demo; UI pokazuje „wynik już znany”.
+- Automatyczny faucet: zakład z UI lub Blinka dla portfela bez demo-USDC dokłada w tej samej transakcji dzienny `faucet_mint`. Bot API ma to jako opcję `autoFaucet` (domyślnie wyłączone). Ostrzeżenie przy braku devnet SOL.
+- Wyzwanie dla znajomego: po zakładzie link do X, Telegrama i WhatsAppa otwiera mecz z zaznaczoną przeciwną stroną (`?side=`).
+- `/blinks` renderuje Action bez dial.to (Dialect: 503, deployment paused), z linkiem `?market=` i kopiowaniem `solana-action:` URL.
+- Tablica ukrywa zamknięte rynki bez żadnej stawki i puste kategorie; kwoty w UI bez sześciu zer.
+- Keeper i cron nie były zmieniane.
+
+Poniżej stan wydania v2 z 2026-10-10.
 
 ## Wykonane
 
@@ -13,7 +26,7 @@ Aktualizacja: **2026-10-10**. Gałąź implementacji: `codex/implementation`. Pl
 - Wspólny keeper CLI/hosting dla meczów i sezonów, deadline przed oracle, refetch po lock, rotacja pracy i rozdzielenie budżetu sezonów/meczów. Redis REST dla trwałych danych, limiterów i lease; lokalnie atomowe pliki.
 - Audyt dat: zachowanie offsetów, fallback do daty z timeTBD, blokada tworzenia rynków bez ustalonej godziny, dodatkowy fallback PandaScore. Nowe joby sprawdzają final status; PandaScore wynik przypisany do opponent ID.
 - Nowy UI listy, meczu, sezonu, admina, nawigacji i faucetu. PL/EN, układ mobilny, brak fałszywych kursów, receipt-aware claim/refund.
-- Next.js 16.4.0 / React 19, Node 24, zaktualizowane lockfile; aktualizacja CI dołączona jako `CI_UPDATE.patch` z powodu braku uprawnienia workflow w użytym logowaniu GitHub. IDL obu programów generowane z Rust, a nie ręcznie poprawiane.
+- Next.js 16.4.0 / React 19, Node 24, zaktualizowane lockfile; CI zaktualizowane w `.github/workflows/ci.yml`. IDL obu programów generowane z Rust, a nie ręcznie poprawiane.
 - Bezpieczne przykłady env, wycofany publiczny/hardcoded provider token, oddzielny keeper signer. Logo 512 px, OpenGraph 1200×630, angielskie README i slajdy, PDF, scenariusz ≤3-minutowego demo.
 
 ## Zweryfikowane lokalnie
@@ -38,4 +51,4 @@ Aktualizacja: **2026-10-10**. Gałąź implementacji: `codex/implementation`. Pl
 5. Wykonać wallet smoke: legacy claim, nowy fee, one-sided refund, dwa feedy, sezon, Actions na finalnym HTTPS URL. Zapisać nowe Explorer linki i nagrać rzeczywiste bet → settle → claim.
 6. Po przeglądzie sekretów zatwierdzić publiczne repo i zgłoszenie. Zamrożenie upgrade authority i produkcyjne Kamino/mainnet pozostają osobnym zakresem.
 
-Szczegółowe polecenia: [DEPLOYMENT](DEPLOYMENT.md). Kontrakt API: [BOT_API](BOT_API.md). Manifesty i zasady sezonów: [SEASON_MARKETS](SEASON_MARKETS.md). Pierwotny plan: [PLAN](PLAN.md).
+Szczegółowe polecenia: [DEPLOYMENT](DEPLOYMENT.md). Kontrakt API: [BOT_API](BOT_API.md). Manifesty i zasady sezonów: [SEASON_MARKETS](SEASON_MARKETS.md). Pierwotny plan: [PLAN](archive/PLAN.md).

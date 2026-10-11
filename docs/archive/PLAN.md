@@ -1,6 +1,6 @@
 # Plan Wdrożenia — FairOdds (Colosseum Hackathon)
 
-> Realizacja i wyniki bieżącego wydania: [STATUS](STATUS.md). Wymagane działania właściciela po mergu: [DEPLOYMENT](DEPLOYMENT.md). Poniższy dokument zachowuje oryginalne założenia; Kamino, live upgrade i publikacja nie są potwierdzone przez lokalne testy.
+> Archiwalny plan. Realizacja i wyniki bieżącego wydania: [STATUS](../STATUS.md). Wdrożenie: [DEPLOYMENT](../DEPLOYMENT.md). Poniższy dokument zachowuje oryginalne założenia; Kamino, live upgrade i publikacja nie są potwierdzone przez lokalne testy.
 
 Kompletny, ustrukturyzowany plan techniczny i submissionowy do wygrania w hackathonie **Colosseum (Crypto World's Fair — Solana Track)**.
 
@@ -66,7 +66,7 @@ Kompletny, ustrukturyzowany plan techniczny i submissionowy do wygrania w hackat
 
 ### 5. 🏆 Dopracowanie UX Po Rozstrzygnięciu (Claim / Refund)
 *Cel:* Wyeliminowanie błędów RPC po kliknięciu `Claim` na przegranym lub odebranym kuponie.
-- [ ] W [`app/src/app/markets/[id]/page.tsx`](../app/src/app/markets/[id]/page.tsx):
+- [ ] W [`app/src/app/markets/[id]/page.tsx`](../../app/src/app/markets/[id]/page.tsx):
   - Jeśli wygrana już odebrana (`receipt.claimed == true`): zablokowany zielony przycisk `✓ Wygrana odebrana / Claimed`.
   - Jeśli użytkownik postawił na przegraną stronę: wyłączony przycisk ze statusem `Brak wygranej (przegrany kupon)`.
   - Jeśli mecz anulowany / remis: czytelny przycisk `Odbierz zwrot 100% (Refund)` ze statusem.
@@ -156,11 +156,11 @@ Kompletny, ustrukturyzowany plan techniczny i submissionowy do wygrania w hackat
 ## 📦 CZĘŚĆ 2: ASSETY, DEPLOY I SUBMISSION NA COLOSSEUM
 
 ### 10. 🇬🇧 Profesjonalne README.md po Angielsku
-- [x] Napisanie oficjalnego, międzynarodowego [`README.md`](../README.md) w języku angielskim:
+- [x] Napisanie oficjalnego, międzynarodowego [`README.md`](../../README.md) w języku angielskim:
   - Architektura protokołu, zero-vig model, yield DeFi przez CPI.
   - Dokumentacja wyroczni Switchboard On-Demand i PDA `feed-lock`.
   - Linki do transakcji devnet i zweryfikowanego smoke testu (Sevilla 1:3 Barcelona).
-- [x] Zachowanie polskiej wersji pod [`README.pl.md`](../README.pl.md).
+- [x] Zachowanie polskiej wersji pod [`README.pl.md`](../../README.pl.md).
 
 ---
 

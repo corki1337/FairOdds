@@ -1,29 +1,8 @@
-# Wdrożenie po mergu
+# Wdrożenie
 
-Kod jest przygotowany na devnet. Merge nie aktualizuje programów Solana. Przed uruchomieniem nowego frontu trzeba zaktualizować **oba programy**, skonfigurować hosting oraz przygotować rynki sezonowe. Nie zmieniaj istniejących adresów programu ani mintu. Nie uruchamiaj ponownie `setup:devnet` na istniejącym środowisku.
+Stan na 2026-10-11: oba programy są zaktualizowane na devnecie (ostatni deploy `aichain` 2026-10-10 22:04 UTC), a `main` wdraża się automatycznie na Vercel (`fairodds1338.vercel.app`) przez workflow „Deploy to Vercel”. **Każdy push na `main` podmienia publiczne demo.** Zmiany wprowadzaj przez PR. Nie zmieniaj istniejących adresów programu ani mintu. Nie uruchamiaj ponownie `setup:devnet` na istniejącym środowisku.
 
-## Pobranie implementacji z GitHuba
-
-W istniejącym klonie repozytorium pobierz gałąź implementacji:
-
-```bash
-git fetch origin
-git switch codex/implementation
-git pull --ff-only
-```
-
-Po zmergowaniu PR do main: `git switch main` i `git pull --ff-only`. Konfigurację dopisz do ignorowanych `.env` / `app/.env.local` lub środowiska hostingu; sekrety nie trafiają do commita.
-
-## Aktualizacja GitHub Actions
-
-Użyte logowanie do GitHuba pozwala publikować kod, ale nie zmieniać `.github/workflows/ci.yml` (brak scope `workflow`). Aktualizacja CI jest dołączona jako `docs/CI_UPDATE.patch`: Node 24, testy API, kontrola TypeScript i oba programy Rust. Właściciel z uprawnieniem do workflows stosuje ją i wysyła osobnym commitem:
-
-```bash
-git apply docs/CI_UPDATE.patch
-git add .github/workflows/ci.yml
-git commit -m "Update CI for FairOdds implementation"
-git push
-```
+Konfigurację dopisz do ignorowanych `.env` / `app/.env.local` lub środowiska hostingu; sekrety nie trafiają do commita. CI (`.github/workflows/ci.yml`) uruchamia typecheck, testy API i źródeł, build Next.js oraz testy obu programów Rust.
 
 ## Środowisko i weryfikacja
 
@@ -84,7 +63,7 @@ Po konfiguracji Redis wykonaj `npm run catalog:publish`, a dla sezonów przygoto
 
 Po upgrade: sprawdź istniejący claim/refund, nowy dwustronny mecz (fee), jednostronny zwrot na kickoffie i historyczny sezon z dwoma feedami. Keeper musi mieć SOL; park potrzebuje finansowanej **wolnej rezerwy** do demo yieldu i ewentualnego zaokrąglenia. Reserve nie może pokrywać rzeczywistych strat ani wypłacać depozytów innych użytkowników. Faucet/seed służą tylko demo-USDC.
 
-Na finalnym HTTPS origin sprawdź `/actions.json`, OPTIONS, GET/POST Actions w `dial.to/?cluster=devnet`, dwie drużyny/kwotę i rzeczywisty podpis w Phantom. Zapisz Explorer linki nowego smoke testu, nagraj materiał według `DEMO_CHECKLIST.md`, dopiero potem publikuj zgłoszenie/repo po przeglądzie sekretów.
+Na finalnym HTTPS origin sprawdź `/actions.json`, OPTIONS, GET/POST Actions na stronie `/blinks?market={id}` (dial.to Dialecta jest obecnie wyłączone, 503), dwie drużyny/kwotę i rzeczywisty podpis w Phantom. Zapisz Explorer linki nowego smoke testu, nagraj materiał według `DEMO_CHECKLIST.md`, dopiero potem publikuj zgłoszenie/repo po przeglądzie sekretów.
 
 ## Ograniczenia wydania
 

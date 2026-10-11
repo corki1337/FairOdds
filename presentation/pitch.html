@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FairOdds — Pitch</title>
+<style>
+@page { size: 1200px 675px; margin: 0 }
+* { box-sizing: border-box }
+body { margin: 0; background: #101719; color: #f3f7f7; font-family: "Segoe UI", Arial, sans-serif }
+.slide { width: 1200px; height: 675px; padding: 64px 85px 80px; position: relative; break-after: page; display: flex; flex-direction: column; justify-content: center; border-top: 8px solid #baff71; overflow: hidden }
+.slide:last-child { break-after: auto }
+.eyebrow { color: #baff71; font-size: 15px; letter-spacing: 4px; font-weight: 600 }
+h1 { font-size: 58px; line-height: 1.06; letter-spacing: -1.5px; max-width: 980px; margin: 20px 0 22px }
+h1.big { font-size: 76px }
+p { font-size: 24px; line-height: 1.45; max-width: 980px; color: #c4d0d2; margin: 10px 0 }
+.note { font-size: 18px; color: #8fa3a6 }
+.accent { color: #baff71 }
+ul { margin: 6px 0; padding-left: 26px }
+li { font-size: 23px; line-height: 1.45; color: #c4d0d2; margin: 7px 0 }
+li b, p b { color: #f3f7f7 }
+.grid { display: grid; gap: 18px; margin-top: 10px }
+.g2 { grid-template-columns: 1fr 1fr }
+.g3 { grid-template-columns: 1fr 1fr 1fr }
+.g4 { grid-template-columns: 1fr 1fr 1fr 1fr }
+.card { background: #182225; border: 1px solid #263538; border-radius: 14px; padding: 20px 22px }
+.card .k { color: #baff71; font-size: 14px; letter-spacing: 2px; font-weight: 600 }
+.card .v { font-size: 40px; font-weight: 700; margin: 6px 0 2px; color: #f3f7f7 }
+.card .t { font-size: 18px; line-height: 1.4; color: #c4d0d2 }
+.card h3 { margin: 6px 0 8px; font-size: 24px }
+table { border-collapse: collapse; width: 100%; margin-top: 8px }
+th, td { text-align: left; padding: 12px 14px; font-size: 19px; border-bottom: 1px solid #263538; color: #c4d0d2 }
+th { color: #8fa3a6; font-weight: 600; font-size: 16px; letter-spacing: 1px }
+td.us { color: #baff71; font-weight: 600 }
+.footer { position: absolute; bottom: 30px; left: 85px; right: 85px; display: flex; justify-content: space-between; color: #8fa3a6; font-size: 14px }
+.logo { display: inline-flex; align-items: center; gap: 14px; font-size: 30px; font-weight: 700 }
+.logo span { background: #baff71; color: #101719; width: 46px; height: 46px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center }
+@media screen { .slide { margin: 0 auto 24px } }
+</style>
+</head>
+<body>
+
+<section class="slide">
+  <div class="logo"><span>F</span>FairOdds</div>
+  <h1 class="big">The sportsbook<br>that can't ban you.</h1>
+  <p>Bet on real matches with your friends, straight from a link. Shared pools on Solana: no bookmaker on the other side.</p>
+  <p class="note">Live on Solana devnet · fairodds1338.vercel.app</p>
+  <div class="footer"><span>FairOdds · Colosseum · Consumer</span><span>01 / 13</span></div>
+</section>
+
+<section class="slide">
+  <div class="eyebrow">THE PROBLEM</div>
+  <h1>The house wins.<br>Then it limits the winners.</h1>
+  <ul>
+    <li><b>Every bookmaker market carries a built-in margin.</b> The odds are priced so the house profits on average.</li>
+    <li><b>Players who win consistently get stake-limited or closed.</b> The bookmaker is the counterparty, so a winner is a cost.</li>
+    <li><b>Betting with friends runs on trust.</b> Group chats, screenshots and IOUs that someone forgets to pay.</li>
+  </ul>
+  <div class="footer"><span>FairOdds</span><span>02 / 13</span></div>
+</section>
+
+<section class="slide">
+  <div class="eyebrow">THE INSIGHT</div>
+  <h1>When fans bet against each other, there is no house to protect.</h1>
+  <ul>
+    <li>In a <b>shared pool</b>, winners are paid by the other side of the pool. Nobody loses money because you are good.</li>
+    <li>Sports betting is <b>already social</b>. The bet happens in the group chat; only the payment is missing.</li>
+    <li>On Solana a $1 bet costs a fraction of a cent in fees, and <b>a link can carry a transaction</b>.</li>
+  </ul>
+  <div class="footer"><span>FairOdds</span><span>03 / 13</span></div>
+</section>
+
+<section class="slide">
+  <div class="eyebrow">THE PRODUCT</div>
+  <h1>Pick. Sign once. Challenge. Claim.</h1>
+  <div class="grid g4">
+    <div class="card"><div class="k">01 PICK</div><h3>A real match</h3><div class="t">Fixtures from TheSportsDB. Live pools and honest odds; an empty side shows no fake odds.</div></div>
+    <div class="card"><div class="k">02 SIGN ONCE</div><h3>One wallet tap</h3><div class="t">A new wallet gets demo-USDC from the on-chain faucet in the same transaction as its first bet.</div></div>
+    <div class="card"><div class="k">03 CHALLENGE</div><h3>Send the link</h3><div class="t">X, Telegram or WhatsApp. The link opens the match with the other side already selected.</div></div>
+    <div class="card"><div class="k">04 CLAIM</div><h3>Paid by code</h3><div class="t">The oracle reports the final score. Winners claim from the program vault; draws refund everyone.</div></div>
+  </div>
+  <div class="footer"><span>FairOdds</span><span>04 / 13</span></div>
+</section>
+
+<section class="slide">
+  <div class="eyebrow">TRUST BY DESIGN</div>
+  <h1>Nobody holds the money.<br>Nobody picks the result.</h1>
+  <ul>
+    <li><b>Program-owned vaults.</b> Stakes sit in a PDA, not in our wallet. Payout = stake × pool ÷ winning side.</li>
+    <li><b>Pinned oracle.</b> A Switchboard feed reads the final score from TheSportsDB; its job hash is fixed when the market is created.</li>
+    <li><b>Permissionless settlement.</b> Anyone can lock, resolve or claim. No admin button decides the winner.</li>
+    <li><b>Automatic refunds.</b> Draw, one-sided pool at kickoff, or no result before the deadline: everyone gets their stake back.</li>
+  </ul>
+  <div class="footer"><span>FairOdds</span><span>05 / 13</span></div>
+</section>
+
+<section class="slide">
+  <div class="eyebrow">WHAT IS LIVE TODAY</div>
+  <h1>Working product on devnet, not a mockup.</h1>
+  <div class="grid g3">
+    <div class="card"><div class="k">MARKETS</div><div class="v">20</div><div class="t">real-fixture match markets, 3 already settled by the oracle</div></div>
+    <div class="card"><div class="k">BETS</div><div class="v">86</div><div class="t">on-chain bets from 21 wallets, mostly our own test wallets so far</div></div>
+    <div class="card"><div class="k">TESTS</div><div class="v">20/20</div><div class="t">integration tests on the compiled programs, plus API tests in CI</div></div>
+  </div>
+  <p class="note" style="margin-top:22px">Two Anchor programs · season pools · public REST and agent API · Solana Actions · English / Polish mobile UI</p>
+  <div class="footer"><span>FairOdds · numbers from devnet, 11 Oct 2026</span><span>06 / 13</span></div>
+</section>
+
+<section class="slide">
+  <div class="eyebrow">WHY NOW, WHY SOLANA</div>
+  <h1>Prediction markets went mainstream. The long tail of matches did not.</h1>
+  <ul>
+    <li>Order books need market makers, so <b>lower leagues and friendly rivalries stay empty</b>. A pool works with two people.</li>
+    <li><b>Solana Actions</b> turn any URL into a bet slip, the natural format for group chats and social feeds.</li>
+    <li><b>Sub-cent fees and stablecoins</b> make small, frequent bets between friends viable.</li>
+  </ul>
+  <div class="footer"><span>FairOdds</span><span>07 / 13</span></div>
+</section>
+
+<section class="slide">
+  <div class="eyebrow">MARKET</div>
+  <h1>A market measured in tens of billions.</h1>
+  <div class="grid g2">
+    <div class="card"><div class="k">ONLINE SPORTS BETTING</div><div class="v">$42–63B</div><div class="t">operator revenue in 2025, growing about 8–13% a year (estimates vary by source)</div></div>
+    <div class="card"><div class="k">OUR ENTRY POINT</div><div class="v">Friend groups</div><div class="t">European football fans and esports communities who already bet with each other in chats</div></div>
+  </div>
+  <p class="note" style="margin-top:22px">Sources: Emergen Research, Market Research Future, Mordor Intelligence, Dataintelo (2025–2026 reports).</p>
+  <div class="footer"><span>FairOdds</span><span>08 / 13</span></div>
+</section>
+
+<section class="slide">
+  <div class="eyebrow">BUSINESS MODEL</div>
+  <h1>Paid only when someone wins.</h1>
+  <ul>
+    <li><b>0.5% of the winners' profit</b> on match pools. Stakes and refunds are never charged. On a balanced pool that is about 0.25% of volume.</li>
+    <li>Example: <b>$10M monthly volume ≈ $25k monthly revenue.</b> The fee can rise to 1–2% and stay far below a bookmaker margin.</li>
+    <li><b>Season pools:</b> 0% fee; revenue comes from yield on principal locked for months (demo reserve today, lending protocol later).</li>
+    <li><b>Next:</b> host fees for creator-run pools and a paid API for bots and media partners.</li>
+  </ul>
+  <div class="footer"><span>FairOdds</span><span>09 / 13</span></div>
+</section>
+
+<section class="slide">
+  <div class="eyebrow">GO-TO-MARKET</div>
+  <h1>Every bet needs an opponent. That is the growth loop.</h1>
+  <ul>
+    <li><b>Challenge links:</b> a pool is only fun with someone on the other side, so every bettor has a reason to invite one.</li>
+    <li><b>Creators and streamers</b> host pools for their audience on match day.</li>
+    <li><b>Start narrow:</b> Polish and European football fan groups, our hackathon communities, then esports (data adapter already built).</li>
+  </ul>
+  <div class="footer"><span>FairOdds</span><span>10 / 13</span></div>
+</section>
+
+<section class="slide">
+  <div class="eyebrow">COMPETITION</div>
+  <h1>Built for the bet between friends.</h1>
+  <table>
+    <tr><th></th><th>BOOKMAKERS</th><th>ORDER-BOOK MARKETS</th><th>FAIRODDS</th></tr>
+    <tr><td>Who is on the other side</td><td>The house</td><td>A market maker</td><td class="us">Other fans</td></tr>
+    <tr><td>Limits winning players</td><td>Yes</td><td>No</td><td class="us">No</td></tr>
+    <tr><td>Works with two people</td><td>Yes</td><td>Rarely</td><td class="us">Yes</td></tr>
+    <tr><td>Who controls the money</td><td>Operator</td><td>Operator or contract</td><td class="us">Program vault</td></tr>
+    <tr><td>Share a bet as a link</td><td>No</td><td>Partly</td><td class="us">Yes</td></tr>
+  </table>
+  <div class="footer"><span>FairOdds</span><span>11 / 13</span></div>
+</section>
+
+<section class="slide">
+  <div class="eyebrow">RISKS WE PLAN FOR</div>
+  <h1>We know where the hard part is.</h1>
+  <ul>
+    <li><b>Regulation.</b> Real-money pools only where licensed: geofencing and a licensed partner per market; a points-based free-to-play mode elsewhere.</li>
+    <li><b>Oracle failure.</b> Pinned feeds, two independent sources for seasons, and refunds by deadline instead of manual verdicts.</li>
+    <li><b>Empty pools.</b> One-sided pools cancel at kickoff; challenge links and the bot API bring the counterparty.</li>
+    <li><b>Today:</b> devnet only, demo tokens with no monetary value.</li>
+  </ul>
+  <div class="footer"><span>FairOdds</span><span>12 / 13</span></div>
+</section>
+
+<section class="slide">
+  <div class="eyebrow">TEAM AND NEXT STEPS</div>
+  <h1>From HackYeah runner-up to a product.</h1>
+  <div class="grid g2">
+    <div class="card"><div class="k">TEAM</div><div class="t" style="font-size:21px;line-height:1.6">[Name] — [role]<br>[Name] — [role]<br>[Name] — [role]<br>2nd place at HackYeah with the first version</div></div>
+    <div class="card"><div class="k">NEXT 3 MONTHS</div><div class="t" style="font-size:21px;line-height:1.6">Pools created by users for their own groups<br>100 real fan groups on devnet<br>Mobile-first wallet onboarding<br>Mainnet pilot with a licensed partner</div></div>
+  </div>
+  <p class="note" style="margin-top:22px">fairodds1338.vercel.app · github.com/corki1337/FairOdds</p>
+  <div class="footer"><span>FairOdds</span><span>13 / 13</span></div>
+</section>
+
+</body>
+</html>

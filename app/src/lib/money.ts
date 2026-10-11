@@ -13,6 +13,12 @@ export function formatUSDC(units: bigint | string): string {
   const n = BigInt(units);
   return `${n / USDC_SCALE}.${(n % USDC_SCALE).toString().padStart(6, "0")}`;
 }
+/** Human-facing amount; APIs keep the exact 6-decimal formatUSDC string. */
+export function displayUSDC(units: bigint | string): string {
+  return (Number(BigInt(units)) / 1e6).toLocaleString("en-US", {
+    maximumFractionDigits: 2,
+  });
+}
 export function poolOdds(a: bigint, b: bigint): [number | null, number | null] {
   if (a <= 0n || b <= 0n) return [null, null];
   return [

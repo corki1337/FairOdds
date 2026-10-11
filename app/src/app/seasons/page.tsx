@@ -97,7 +97,10 @@ export default function Seasons() {
             <h3>{m.title}</h3>
             {m.historicalDemo && (
               <p className="muted">
-                {t("Historical demo", "Demo historyczne")}
+                {t(
+                  "Historical demo · result already known · demo tokens only",
+                  "Demo historyczne · wynik już znany · tylko tokeny demo",
+                )}
               </p>
             )}
             <p className="kickoff">

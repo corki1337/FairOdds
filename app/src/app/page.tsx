@@ -35,7 +35,12 @@ export default function Home() {
     staleTime: 60000,
   });
 
-  const allMarkets = q.data?.markets ?? [];
+  // Closed markets that never received a stake carry no information for bettors.
+  const allMarkets = (q.data?.markets ?? []).filter(
+    (m) =>
+      m.status === "open" ||
+      m.poolUnits.some((units) => BigInt(units) > 0n),
+  );
   const marketCounts = {
     all: allMarkets.length,
     football: allMarkets.filter((m) => (m.category ?? "football") === "football")
@@ -126,7 +131,7 @@ export default function Home() {
             <h2>{t("Pick your match", "Wybierz swój mecz")}</h2>
           </div>
           <span className="muted">
-            {q.data?.total ?? "—"} {t("markets", "rynków")}
+            {q.data ? allMarkets.length : "—"} {t("markets", "rynków")}
           </span>
         </div>
 
@@ -139,6 +144,7 @@ export default function Home() {
           {CATEGORY_TABS.map((cat) => {
             const isSelected = marketCategory === cat.id;
             const count = marketCounts[cat.id as keyof typeof marketCounts] ?? 0;
+            if (cat.id !== "all" && count === 0 && !isSelected) return null;
             return (
               <button
                 key={cat.id}
@@ -314,6 +320,7 @@ export default function Home() {
               const isSelected = fixtureCategory === cat.id;
               const count =
                 fixtureCounts[cat.id as keyof typeof fixtureCounts] ?? 0;
+              if (cat.id !== "all" && count === 0 && !isSelected) return null;
               return (
                 <button
                   key={cat.id}
