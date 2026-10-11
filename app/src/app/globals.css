@@ -258,6 +258,171 @@ button.primary {
 .toolbar input {
   font-size: 13px;
 }
+
+/* Category filter tabs */
+.category-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.category-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--stroke);
+  border-radius: 9999px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mute);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  user-select: none;
+}
+.category-tab:hover {
+  border-color: var(--accent);
+  color: #fff;
+  transform: translateY(-1px);
+}
+.category-tab.selected {
+  background: rgba(186, 255, 113, 0.12);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 14px rgba(186, 255, 113, 0.16);
+}
+.category-tab .cat-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+.category-tab .cat-count {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--mute);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.category-tab.selected .cat-count {
+  background: rgba(186, 255, 113, 0.25);
+  color: var(--accent);
+  font-weight: 600;
+}
+.category-tab.small {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+.admin-cat-bar {
+  margin: 12px 0 16px;
+}
+
+/* Badges for cards and detail */
+.card-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #111b1e;
+  border: 1px solid var(--stroke);
+  color: #d1dedf;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.category-badge.esports_cs2 {
+  border-color: rgba(247, 168, 56, 0.5);
+  color: #f7b24e;
+  background: rgba(247, 168, 56, 0.09);
+}
+.category-badge.esports_lol {
+  border-color: rgba(77, 166, 255, 0.5);
+  color: #70b7ff;
+  background: rgba(77, 166, 255, 0.09);
+}
+.category-badge.football {
+  border-color: var(--stroke);
+  color: #c4d7d9;
+}
+.category-badge.esports {
+  border-color: rgba(189, 122, 255, 0.5);
+  color: #cca3ff;
+  background: rgba(189, 122, 255, 0.09);
+}
+
+.fixture-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fixture-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.category-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #152225;
+  border: 1px solid var(--stroke);
+  color: var(--mute);
+}
+.category-tag.esports_cs2 {
+  border-color: rgba(247, 168, 56, 0.45);
+  color: #f7b24e;
+}
+.category-tag.esports_lol {
+  border-color: rgba(77, 166, 255, 0.45);
+  color: #70b7ff;
+}
+.category-tag.football {
+  border-color: var(--stroke);
+  color: #b5c7c9;
+}
+.category-tag.esports {
+  border-color: rgba(189, 122, 255, 0.45);
+  color: #cca3ff;
+}
+.fixture-format {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.market-detail-tags {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 12px 0 16px;
+}
+.format-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(186, 255, 113, 0.1);
+  border: 1px solid rgba(186, 255, 113, 0.3);
+  color: var(--accent);
+}
+
 .market-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

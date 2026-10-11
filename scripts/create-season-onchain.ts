@@ -15,7 +15,13 @@ async function main() {
   if (!manifests.length) {
     throw new Error("No manifests found in seasons.json");
   }
-  const m = manifests[0];
+  const idArg = process.argv[2];
+  const m = idArg
+    ? manifests.find((x) => x.id === idArg)
+    : manifests[manifests.length - 1];
+  if (!m) {
+    throw new Error(`Season manifest ${idArg} not found in seasons.json`);
+  }
   console.log("Creating season on-chain:", m.id, m.title);
   const wallet = createServerWallet(ctx.admin);
 

@@ -148,13 +148,48 @@ export function scoreDiffJobs(id: number | bigint | string): OracleJob[] {
     "$.events[?(@.strStatus == 'FT')].intAwayScore";
   return [OracleJob.fromObject(value)];
 }
-/** Existing football jobs remain pinned to their original content hash. */
+/** Candidate job defs for a market id, including legacy esports/football pins. */
+export function jobCandidatesForMatch(id: string): OracleJob[][] {
+  const n = BigInt(id);
+  if (n >= BigInt(UNMARKETABLE_ID_OFFSET)) {
+    const pandaId = (n - BigInt(UNMARKETABLE_ID_OFFSET)).toString();
+    const out = [
+      pandaScoreDiffJobs(pandaId),
+      legacyPandaScoreDiffJobs(pandaId),
+    ];
+    // Older markets hashed the HTTP URL with the real token baked in.
+    const token = process.env.PANDASCORE_TOKEN?.trim();
+    if (token) {
+      for (const jobs of [...out]) {
+        const raw = JSON.stringify(OracleJob.toObject(jobs[0])).replace(
+          /\$\{PANDASCORE_TOKEN\}/g,
+          token,
+        );
+        out.push([OracleJob.fromObject(JSON.parse(raw))]);
+      }
+    }
+    return out;
+  }
+  return [scoreDiffJobs(id), legacyScoreDiffJobs(id)];
+}
+
+/** Existing football/esports jobs remain pinned to their original content hash. */
 export function jobsForMatch(id: string, hash: Uint8Array): OracleJob[] {
-  for (const jobs of [scoreDiffJobs(id), legacyScoreDiffJobs(id)])
-    if (feedHashOf(jobs).equals(Buffer.from(hash))) return jobs;
+  const want = Buffer.from(hash);
+  for (const jobs of jobCandidatesForMatch(id))
+    if (feedHashOf(jobs).equals(want)) return jobs;
   throw new Error(
     "Unsupported pinned match feed; preserve its original jobs or wait for the refund deadline",
   );
+}
+
+export function matchFeedSupported(id: string, hash: Uint8Array): boolean {
+  try {
+    jobsForMatch(id, hash);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

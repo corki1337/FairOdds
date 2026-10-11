@@ -29,8 +29,12 @@ export async function readStore<T>(
   fallback: T,
 ): Promise<T> {
   if (remoteStore()) {
-    const value = await redis(["GET", `fairodds:${key}`]);
-    return value ? JSON.parse(value) : fallback;
+    try {
+      const value = await redis(["GET", `fairodds:${key}`]);
+      if (value) return JSON.parse(value);
+    } catch (err) {
+      console.warn(`Redis GET fairodds:${key} failed:`, err);
+    }
   }
   try {
     return JSON.parse(await fs.readFile(file, "utf8"));

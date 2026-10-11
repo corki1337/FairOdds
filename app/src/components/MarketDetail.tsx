@@ -23,6 +23,7 @@ import {
 import { seasonReceiptPda, settleSeasonTx } from "@/lib/seasons";
 import { sendV0, resolveWithOracle, cancelExpired, lockIx } from "@/lib/cranks";
 import { parseUSDC, formatUSDC, quote } from "@/lib/money";
+import { getCategoryMeta } from "@/lib/fixtures";
 import type { MatchView, SeasonView } from "@/lib/views";
 export function MarketDetail({ season = false }: { season?: boolean }) {
   const params = useParams<{ id: string }>();
@@ -226,7 +227,17 @@ export function MarketDetail({ season = false }: { season?: boolean }) {
         qc.invalidateQueries({ queryKey: ["demo-usdc"] }),
       ]);
     } catch (e) {
-      setError((e as Error).message);
+      const msg = (e as Error).message;
+      if (msg.includes("No gateways available")) {
+        setError(
+          t(
+            "Switchboard Oracle: No active oracle gateways on Solana Devnet (Switchboard testnet infrastructure is currently offline). If oracles do not resolve before the deadline, all stakes can be claimed 100% via Unlock Refunds.",
+            "Wyrocznia Switchboard: Brak aktywnych bramek na Solana Devnet (zewnętrzna infrastruktura testowa Switchboard Labs jest obecnie wyłączona). Jeśli wyrocznia nie rozliczy meczu, po upływie terminu (deadline) odblokuje się 100% zwrot stawek.",
+          ),
+        );
+      } else {
+        setError(msg);
+      }
     } finally {
       setBusy(false);
     }
@@ -251,22 +262,105 @@ export function MarketDetail({ season = false }: { season?: boolean }) {
           · #{id}
         </p>
         <h1>{season ? ss.title : `${teams[0]} vs ${teams[1]}`}</h1>
-        <span className={`status ${m.status}`}>
-          {t(
-            m.status,
-            (
-              {
-                open: "Otwarty",
-                locked: "Zablokowany",
-                resolved: "Rozliczony",
-                cancelled: "Zwrot",
-              } as any
-            )[m.status],
+        <div className="market-detail-tags">
+          <span
+            className={`status ${
+              m.status === "resolved" || m.status === "cancelled"
+                ? m.status
+                : now >= (season ? m.endTime : (m as MatchView).endTime)
+                  ? "locked"
+                  : season && now >= cutoff
+                    ? "locked"
+                    : m.status
+            }`}
+          >
+            {now >= (season ? m.endTime : (m as MatchView).endTime) &&
+            (m.status === "locked" || (season && m.status === "open"))
+              ? t("Awaiting oracle", "Oczekuje na wyrocznię")
+              : season && now >= cutoff && m.status === "open"
+                ? t("In play", "W grze")
+                : t(
+                    m.status,
+                    (
+                      {
+                        open: "Otwarty",
+                        locked: "W grze",
+                        resolved: "Rozliczony",
+                        cancelled: "Zwrot",
+                      } as any
+                    )[m.status],
+                  )}
+          </span>
+          {!season && (m as MatchView).category && (
+            <span className={`category-badge ${(m as MatchView).category}`}>
+              {getCategoryMeta((m as MatchView).category).icon}{" "}
+              {(m as MatchView).league ||
+                (language === "pl"
+                  ? getCategoryMeta((m as MatchView).category).labelPl
+                  : getCategoryMeta((m as MatchView).category).labelEn)}
+            </span>
           )}
-        </span>
+          {!season && (m as MatchView).format && (
+            <span className="format-badge">{(m as MatchView).format}</span>
+          )}
+        </div>
         <p className="kickoff">
           {t("Betting closes", "Zakłady zamykają się")}: {formatDate(cutoff)}
         </p>
+        {((!season && m.status === "locked" && now >= (m as MatchView).endTime) ||
+          (season && m.status === "open" && now >= m.endTime)) && (
+          <div className="notice" style={{ margin: "18px 0" }}>
+            <p style={{ margin: 0, fontWeight: 600, color: "#fff" }}>
+              ⏳{" "}
+              {t(
+                season
+                  ? "Season finished · Awaiting oracle settlement"
+                  : "Match finished · Awaiting oracle settlement",
+                season
+                  ? "Sezon zakończony · Oczekiwanie na rozliczenie wyroczni"
+                  : "Mecz zakończony · Oczekiwanie na rozliczenie wyroczni",
+              )}
+            </p>
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: 13,
+                color: "var(--mute)",
+              }}
+            >
+              {now >= m.resolveDeadline
+                ? t(
+                    "The oracle resolution deadline has passed. 100% refunds are unlocked via the button below.",
+                    "Termin wyroczni minął. 100% zwrotów jest odblokowane za pomocą przycisku poniżej.",
+                  )
+                : t(
+                    season
+                      ? "The season has finished. If Switchboard oracles fail to report before the deadline, full 100% refunds unlock on:"
+                      : "The match has finished. If Switchboard oracles fail to report before the deadline, full 100% refunds unlock on:",
+                    season
+                      ? "Sezon zakończył się. Jeśli wyrocznia Switchboard nie dostarczy wyniku przed upływem terminu, 100% zwrotu odblokuje się:"
+                      : "Mecz zakończył się. Jeśli wyrocznia Switchboard nie dostarczy wyniku przed upływem terminu, 100% zwrotu odblokuje się:",
+                  ) +
+                  " " +
+                  formatDate(m.resolveDeadline)}
+            </p>
+            {total === 0n && (
+              <p
+                style={{
+                  margin: "6px 0 0",
+                  fontSize: 12,
+                  color: "var(--mute)",
+                }}
+              >
+                ℹ️{" "}
+                {t(
+                  "Empty pool: No stakes were placed on this market.",
+                  "Pusta pula: Brak postawionych zakładów na ten rynek.",
+                )}
+              </p>
+            )}
+          </div>
+        )}
       </div>
       {season && ss.historicalDemo && (
         <p className="notice">
@@ -396,6 +490,19 @@ export function MarketDetail({ season = false }: { season?: boolean }) {
               {t(
                 "Could not verify your receipt. Retry before signing.",
                 "Nie udało się sprawdzić kuponu. Ponów przed podpisaniem.",
+              )}
+            </p>
+          )}
+          {closed && (m.status === "open" || m.status === "locked") && !receipt && (
+            <p className="notice" style={{ marginTop: 20 }}>
+              🔒{" "}
+              {t(
+                season
+                  ? "Betting is closed for this season market (cutoff passed)."
+                  : "Betting is closed for this match.",
+                season
+                  ? "Składanie zakładów na ten sezon zostało zamknięte (termin minął)."
+                  : "Składanie zakładów na ten mecz zostało zamknięte.",
               )}
             </p>
           )}

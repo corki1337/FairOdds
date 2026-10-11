@@ -151,9 +151,15 @@ export async function settleSeasonTx(
   if (!wallet.publicKey) throw new Error("Connect wallet");
   if (!expired) {
     if (!manifest) {
-      const res = await fetch(`/api/v1/seasons/${m.id}/manifest`);
-      if (!res.ok) throw new Error("Season manifest unavailable");
-      manifest = await res.json();
+      if (typeof window === "undefined") {
+        const { loadSeasonManifests } = await import("./catalog");
+        const all = await loadSeasonManifests();
+        manifest = all.find((s) => s.id === m.id);
+      } else {
+        const res = await fetch(`/api/v1/seasons/${m.id}/manifest`);
+        if (res.ok) manifest = await res.json();
+      }
+      if (!manifest) throw new Error("Season manifest unavailable");
     }
     const sb = await loadSwitchboard(connection);
     for (const i of [0, 1] as const) {

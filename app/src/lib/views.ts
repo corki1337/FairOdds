@@ -1,3 +1,5 @@
+import type { FixtureCategoryId } from "./fixtures";
+
 export type MatchView = {
   id: string;
   type: "match";
@@ -20,6 +22,9 @@ export type MatchView = {
   payoutPoolUnits: string;
   vault: string;
   oracle: { primary: string; secondary: string | null; hash: string };
+  category?: FixtureCategoryId;
+  league?: string | null;
+  format?: string | null;
 };
 export type SeasonView = {
   id: string;

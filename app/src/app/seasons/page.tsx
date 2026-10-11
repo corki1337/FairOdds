@@ -11,6 +11,7 @@ export default function Seasons() {
     queryFn: () => getJson<{ markets: SeasonView[] }>("/api/v1/seasons"),
     refetchInterval: 30000,
   });
+  const now = Math.floor(Date.now() / 1000);
   return (
     <>
       <section className="hero">
@@ -65,7 +66,28 @@ export default function Seasons() {
         {q.data?.markets.map((m) => (
           <Link className="market-card" key={m.id} href={`/seasons/${m.id}`}>
             <div className="card-top">
-              <span className="status">
+              <span
+                className={`status ${
+                  m.status === "resolved" || m.status === "cancelled"
+                    ? m.status
+                    : now >= m.endTime
+                      ? "locked"
+                      : now >= m.cutoff
+                        ? "locked"
+                        : "open"
+                }`}
+              >
+                {m.status === "resolved"
+                  ? t("Resolved", "Rozliczony")
+                  : m.status === "cancelled"
+                    ? t("Cancelled", "Zwrot")
+                    : now >= m.endTime
+                      ? t("Awaiting result", "Oczekuje na wynik")
+                      : now >= m.cutoff
+                        ? t("In play", "W grze")
+                        : t("Open", "Otwarty")}
+              </span>
+              <span className="badge" style={{ fontSize: "11px", opacity: 0.85 }}>
                 {m.kind === 0
                   ? t("Champion", "Mistrz")
                   : t("Top scorer", "Król strzelców")}

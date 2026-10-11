@@ -19,10 +19,10 @@ async function handle(req: NextRequest) {
   try {
     const limitParam = req.nextUrl.searchParams.get("limit");
     const timeoutParam = req.nextUrl.searchParams.get("timeout");
-    const maxActions = limitParam ? Math.max(1, parseInt(limitParam, 10)) : 3;
+    const maxActions = limitParam ? Math.max(1, parseInt(limitParam, 10)) : 10;
     const maxDurationMs = timeoutParam
       ? Math.max(3000, parseInt(timeoutParam, 10))
-      : 15000;
+      : 50000;
     return NextResponse.json(
       await runKeeper(undefined, maxDurationMs, maxActions),
     );
