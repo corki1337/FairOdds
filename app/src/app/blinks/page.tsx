@@ -263,17 +263,31 @@ export default function BlinksInspector() {
               {/* Action Parameters and buttons */}
               {payload.links?.actions && payload.links.actions.length > 0 && (
                 <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-                  <label style={{ display: "block", marginBottom: 12, fontSize: 13, fontWeight: 500 }}>
-                    {payload.links.actions[0].parameters?.[0]?.label || t("Amount (demo-USDC)", "Kwota (demo-USDC)")}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                    <label
+                      htmlFor="blink-amount-input"
+                      style={{ fontSize: 13, fontWeight: 500, color: "var(--mute, #aaa)" }}
+                    >
+                      {payload.links.actions[0].parameters?.[0]?.label || t("Amount in demo-USDC (minimum 1)", "Kwota w demo-USDC (minimum 1)")}
+                    </label>
                     <input
+                      id="blink-amount-input"
                       type="number"
                       min={1}
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       disabled={busy || payload.disabled}
-                      style={{ marginTop: 6 }}
+                      style={{
+                        width: "100%",
+                        padding: "12px 14px",
+                        fontSize: 15,
+                        borderRadius: 8,
+                        background: "#0c1315",
+                        border: "1px solid var(--stroke, #304043)",
+                        color: "#fff",
+                      }}
                     />
-                  </label>
+                  </div>
 
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     {payload.links.actions.map((link, idx) => (
