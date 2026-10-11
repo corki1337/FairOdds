@@ -219,7 +219,7 @@ button.primary {
   text-align: center;
   text-decoration: none;
 }
-.invite-banner {
+.notice.invite-banner {
   border-color: var(--accent);
   color: var(--accent);
 }

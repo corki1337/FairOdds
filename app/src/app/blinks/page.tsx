@@ -51,7 +51,8 @@ export default function BlinksInspector() {
 
   const marketsQuery = useQuery({
     queryKey: ["markets-for-blinks"],
-    queryFn: () => getJson<{ markets: MatchView[] }>("/api/v1/markets"),
+    queryFn: () =>
+      getJson<{ markets: MatchView[] }>("/api/v1/markets?status=open&limit=100"),
   });
 
   const openMarkets = (marketsQuery.data?.markets || []).filter(
