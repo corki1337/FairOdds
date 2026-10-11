@@ -1,5 +1,6 @@
 # FairOdds
 
+
 **Sports markets with shared pools on Solana devnet.** Bettors choose a side, sign with their own wallet and claim from program-owned vaults. Pool ratios determine indicative odds; Switchboard On-Demand supplies pinned sports results.
 
 [Polski](README.pl.md) · [Deployment](docs/DEPLOYMENT.md) · [Bot API](docs/BOT_API.md) · [Season markets](docs/SEASON_MARKETS.md) · [Verification status](docs/STATUS.md)
